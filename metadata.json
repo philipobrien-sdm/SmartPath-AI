@@ -1,0 +1,5 @@
+{
+  "name": "SmartPath AI - PERT/Gantt Project Manager",
+  "description": "A smart project management tool featuring AI-assisted planning, Critical Path Method (CPM) calculation, interactive PERT/Gantt visualizations, and dynamic risk/resource/cost overlays.",
+  "requestFramePermissions": []
+}
