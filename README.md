@@ -1,6 +1,7 @@
 # SmartPath AI - Project Manager
 
 SmartPath AI is an intelligent project management tool that leverages generative AI (Google Gemini) to help you plan, visualize, and analyze projects. It features interactive PERT and Gantt charts, CPM (Critical Path Method) calculation, and advanced risk and cost analysis.
+<img width="1000" height="450" alt="Screenshot 2025-12-03 201506" src="https://github.com/user-attachments/assets/726d1f75-1bf1-4667-9412-fb7dc58106c1" />
 
 ## Features
 
