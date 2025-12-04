@@ -126,12 +126,28 @@ const CharterView: React.FC<CharterViewProps> = ({ project, onProjectChange, aiE
             {/* Header */}
             <div className="bg-slate-800 text-white p-8 relative">
                 <div className="flex justify-between items-start">
-                    <div>
+                    <div className="flex-1 mr-8">
                         <div className="text-indigo-300 font-bold tracking-widest text-xs uppercase mb-1">Project Charter</div>
-                        <h1 className="text-3xl font-bold">{project.name}</h1>
-                        <p className="text-slate-400 mt-1 text-sm">ID: {project.id} | Start: {project.startDate}</p>
+                        <input 
+                            className="text-3xl font-bold bg-transparent border-b border-transparent hover:border-indigo-400 focus:border-indigo-400 focus:outline-none text-white placeholder-indigo-300 transition-all w-full mb-1"
+                            value={project.name}
+                            onChange={(e) => onProjectChange({...project, name: e.target.value}, "Renamed Project")}
+                            placeholder="Project Name"
+                        />
+                        <div className="flex items-center gap-4 text-slate-400 mt-1 text-sm">
+                            <span className="font-mono text-xs opacity-70">ID: {project.id}</span>
+                            <div className="flex items-center gap-2 bg-slate-700/50 px-2 py-1 rounded border border-slate-600 hover:border-slate-500 transition-colors">
+                                <span className="text-xs uppercase font-bold tracking-wider">Start Date:</span>
+                                <input 
+                                    type="date"
+                                    className="bg-transparent text-white text-xs focus:outline-none cursor-pointer"
+                                    value={project.startDate}
+                                    onChange={(e) => onProjectChange({...project, startDate: e.target.value}, "Changed Start Date")}
+                                />
+                            </div>
+                        </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right flex-shrink-0">
                          <div className="text-xs text-slate-400 uppercase tracking-widest mb-1">Total Budget</div>
                          <div className="text-2xl font-mono font-bold">${project.budget.toLocaleString()}</div>
                     </div>

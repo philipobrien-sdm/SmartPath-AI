@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import * as d3 from 'd3';
 import { Task, Project, OverlayMode, ThemeConfig } from '../types';
-import { calculateTaskCost, getRiskScore, isTaskComplete, isTaskOverdue, calculateResourceBottlenecks } from '../utils/scheduler';
+import { calculateTaskCost, getRiskScore, isTaskComplete, isTaskOverdue, calculateResourceBottlenecks, formatProjectDate } from '../utils/scheduler';
 
 interface PERTChartProps {
   project: Project;
@@ -281,7 +281,7 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
                                 display: 'flex',
                                 justifyContent: 'space-between',
                                 alignItems: 'flex-start',
-                                padding: '12px 12px 8px 12px'
+                                padding: '12px 12px 0 12px'
                             }}>
                                 <h3 style={{
                                     fontWeight: 'bold',
@@ -313,6 +313,15 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
                                 </div>
                             </div>
 
+                            {/* Start Date & Duration Row */}
+                            <div style={{ padding: '4px 12px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px' }}>
+                                <span style={{ color: '#475569', fontWeight: 600 }}>
+                                    Start: {formatProjectDate(project.startDate, node.earlyStart)}
+                                </span>
+                                <span style={{ color: '#94a3b8' }}>•</span>
+                                <span style={{ color: '#64748b' }}>{node.duration} days</span>
+                            </div>
+
                             {/* Metrics Row */}
                             <div style={{
                                 padding: '0 12px 8px 12px',
@@ -320,15 +329,10 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
                                 justifyContent: 'space-between',
                                 fontSize: '10px',
                                 color: '#64748b', // slate-500
-                                marginBottom: '8px'
+                                marginBottom: '4px'
                             }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: '#94a3b8' }}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    <span style={{ fontWeight: 500 }}>{node.duration}d</span>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    {/* Cost Icon */}
                                     <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: '#94a3b8' }}>
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
@@ -373,7 +377,7 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
                                 )}
                             </div>
 
-                            {/* Clean CPM Grid Footer */}
+                            {/* Clean CPM Grid Footer (Using Dates) */}
                             <div style={{
                                 marginTop: 'auto',
                                 borderTop: '1px solid #f1f5f9',
@@ -409,11 +413,16 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
                                         <div key={i} style={{
                                             textAlign: 'center',
                                             padding: '4px 0',
-                                            fontFamily: 'monospace',
+                                            fontFamily: 'sans-serif',
+                                            fontSize: '8px',
                                             fontWeight: i < 2 ? 'bold' : 'normal',
                                             color: i < 2 ? '#4338ca' : '#64748b', // indigo-700 : slate-500
-                                            borderRight: i !== 3 ? '1px solid #f1f5f9' : 'none'
-                                        }}>{val}</div>
+                                            borderRight: i !== 3 ? '1px solid #f1f5f9' : 'none',
+                                            whiteSpace: 'nowrap',
+                                            overflow: 'hidden'
+                                        }} title={formatProjectDate(project.startDate, val)}>
+                                            {formatProjectDate(project.startDate, val)}
+                                        </div>
                                     ))}
                                 </div>
                             </div>

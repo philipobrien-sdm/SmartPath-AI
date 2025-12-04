@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Project, Task, OverlayMode, ThemeConfig } from '../types';
-import { getRiskScore, calculateTaskCost, getDailyResourceUsage, isTaskComplete, isTaskOverdue, calculateResourceBottlenecks } from '../utils/scheduler';
+import { getRiskScore, calculateTaskCost, getDailyResourceUsage, isTaskComplete, isTaskOverdue, calculateResourceBottlenecks, formatProjectDate } from '../utils/scheduler';
 import * as d3 from 'd3';
 
 interface GanttChartProps {
@@ -125,6 +125,9 @@ const GanttChart: React.FC<GanttChartProps> = ({ project, overlayMode, selectedR
 
           {project.tasks.map((task, idx) => {
             const isOverdue = isTaskOverdue(task, project.startDate);
+            const startStr = formatProjectDate(project.startDate, task.earlyStart);
+            const endStr = formatProjectDate(project.startDate, task.earlyFinish);
+
             return (
               <div key={task.id} className="flex border-b border-slate-50 hover:bg-slate-50 transition-colors h-[40px] items-center group relative">
                 <div 
@@ -144,7 +147,7 @@ const GanttChart: React.FC<GanttChartProps> = ({ project, overlayMode, selectedR
                       width: task.duration * dayWidth,
                       ...getTaskStyle(task)
                     }}
-                    title={`Start: ${task.earlyStart}, End: ${task.earlyFinish}, Slack: ${task.slack}`}
+                    title={`${task.name}\nStart: ${startStr}\nEnd: ${endStr}\nSlack: ${task.slack} days`}
                   >
                     {task.duration * dayWidth > 30 && <span className="truncate px-1 shadow-black drop-shadow-md">{task.name}</span>}
                   </div>

@@ -1,5 +1,23 @@
 import { Task, Project, Resource } from '../types';
 
+// Helper to add days to a date string and format it
+export const formatProjectDate = (startDateStr: string, daysOffset: number): string => {
+    if (!startDateStr) return `Day ${daysOffset}`;
+    
+    // Parse manually to avoid timezone shifts
+    const parts = startDateStr.split('-');
+    if (parts.length !== 3) return `Day ${daysOffset}`;
+    
+    const year = parseInt(parts[0]);
+    const month = parseInt(parts[1]) - 1; // 0-indexed
+    const day = parseInt(parts[2]);
+    
+    const date = new Date(year, month, day);
+    date.setDate(date.getDate() + daysOffset);
+    
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+};
+
 export const calculateCPM = (tasks: Task[]): Task[] => {
   if (tasks.length === 0) return [];
 

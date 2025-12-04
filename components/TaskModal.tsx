@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Task, Project, Resource, Deliverable, Risk } from '../types';
+import { formatProjectDate } from '../utils/scheduler';
 
 interface TaskModalProps {
   task: Task;
@@ -162,6 +163,46 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, project, isOpen, onClose, o
                     )}
                 </div>
             </div>
+
+            {/* CPM Scheduling Details */}
+            {!isEditing && (
+                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
+                    <div className="flex justify-between items-center mb-3">
+                        <h3 className="font-bold text-indigo-900 text-sm flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-indigo-600">
+                                <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" />
+                            </svg>
+                            CPM Scheduling Details
+                        </h3>
+                        {task.isCritical && (
+                            <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded border border-red-200">Critical Path</span>
+                        )}
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                            <div className="text-[10px] uppercase text-indigo-400 font-bold mb-1">Earliest Start</div>
+                            <div className="font-mono text-indigo-800 font-semibold">{formatProjectDate(project.startDate, task.earlyStart)}</div>
+                        </div>
+                        <div>
+                            <div className="text-[10px] uppercase text-indigo-400 font-bold mb-1">Earliest Finish</div>
+                            <div className="font-mono text-indigo-800 font-semibold">{formatProjectDate(project.startDate, task.earlyFinish)}</div>
+                        </div>
+                        <div>
+                            <div className="text-[10px] uppercase text-slate-400 font-bold mb-1">Late Start</div>
+                            <div className="font-mono text-slate-600">{formatProjectDate(project.startDate, task.lateStart)}</div>
+                        </div>
+                        <div>
+                            <div className="text-[10px] uppercase text-slate-400 font-bold mb-1">Late Finish</div>
+                            <div className="font-mono text-slate-600">{formatProjectDate(project.startDate, task.lateFinish)}</div>
+                        </div>
+                    </div>
+                    {task.slack > 0 && (
+                        <div className="mt-3 pt-3 border-t border-indigo-200/50 text-xs text-indigo-700">
+                            <strong>Slack Available:</strong> {task.slack} days can be delayed without impacting the project deadline.
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Deliverables */}
             <div className="bg-white p-4 rounded-xl border border-slate-200">

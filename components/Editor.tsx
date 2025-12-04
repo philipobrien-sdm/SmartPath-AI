@@ -202,6 +202,27 @@ const Editor: React.FC<EditorProps> = ({ project, onProjectChange }) => {
 
   return (
     <div className="p-4 bg-white rounded-xl shadow-sm border border-slate-200 h-full overflow-hidden flex flex-col">
+      
+      {/* Project Global Settings */}
+      <div className="mb-4 p-3 bg-slate-50 rounded-lg border border-slate-100 shadow-sm">
+          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Project Details</label>
+          <input 
+              className="w-full font-bold text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 outline-none mb-2 placeholder-slate-400"
+              value={project.name}
+              onChange={(e) => onProjectChange({...project, name: e.target.value}, "Renamed Project")}
+              placeholder="Project Name"
+          />
+          <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500 whitespace-nowrap">Start Date:</span>
+              <input 
+                  type="date"
+                  className="w-full text-xs p-1.5 border border-slate-200 rounded bg-white focus:ring-1 focus:ring-indigo-500 outline-none cursor-pointer"
+                  value={project.startDate}
+                  onChange={(e) => onProjectChange({...project, startDate: e.target.value}, "Changed Start Date")}
+              />
+          </div>
+      </div>
+
       <div className="flex space-x-4 border-b border-slate-100 pb-2 mb-4">
         <button 
             onClick={() => setActiveTab('TASKS')}
