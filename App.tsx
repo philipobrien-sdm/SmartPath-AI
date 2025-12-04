@@ -8,6 +8,7 @@ import GanttChart from './components/GanttChart';
 import Editor from './components/Editor';
 import ReportView from './components/ReportView';
 import CharterView from './components/CharterView';
+import TaskModal from './components/TaskModal';
 
 // Icons
 const SparklesIcon = () => (
@@ -72,6 +73,11 @@ const HistoryIcon = () => (
     </svg>
 );
 
+const UndoIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+    </svg>
+);
 
 const App: React.FC = () => {
   const [project, setProject] = useState<Project>({
@@ -89,10 +95,15 @@ const App: React.FC = () => {
     aiQueryLog: []
   });
 
+  // History State
+  const [history, setHistory] = useState<{project: Project, action: string}[]>([]);
+  const [isHistoryDropdownOpen, setIsHistoryDropdownOpen] = useState(false);
+
   const [viewMode, setViewMode] = useState<ViewMode>('GANTT');
   const [overlayMode, setOverlayMode] = useState<OverlayMode>('NONE');
   const [selectedResourceId, setSelectedResourceId] = useState<string | undefined>();
-  
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
   // Theme State
   const [theme, setTheme] = useState<ThemeConfig>({
       taskDefault: '#6366f1', // indigo-500
@@ -108,7 +119,7 @@ const App: React.FC = () => {
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false); // AI Log
   const [aiEnabled, setAiEnabled] = useState(true);
 
   // Generation State
@@ -136,6 +147,40 @@ const App: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.tasks.length, project.tasks.map(t => t.duration + t.predecessors.join('')).join('')]); 
 
+  // --- History & Project Management ---
+  const handleProjectChange = (newProject: Project, action: string) => {
+      // 1. Push current state to history
+      setHistory(prev => {
+          const newHistory = [...prev, { project: JSON.parse(JSON.stringify(project)), action }];
+          // Keep max 10 steps
+          if (newHistory.length > 10) return newHistory.slice(newHistory.length - 10);
+          return newHistory;
+      });
+
+      // 2. Update State
+      setProject(newProject);
+  };
+
+  const handleUndo = () => {
+      if (history.length === 0) return;
+      const lastState = history[history.length - 1];
+      
+      setProject(lastState.project);
+      setHistory(prev => prev.slice(0, prev.length - 1));
+  };
+
+  const handleRollbackTo = (index: number) => {
+      const targetState = history[index];
+      setProject(targetState.project);
+      setHistory(prev => prev.slice(0, index));
+      setIsHistoryDropdownOpen(false);
+  };
+
+  const handleSaveFromModal = (taskId: string, updates: Partial<any>, actionDesc: string) => {
+    const newTasks = project.tasks.map(t => t.id === taskId ? { ...t, ...updates } : t);
+    handleProjectChange({ ...project, tasks: newTasks }, actionDesc);
+  };
+
   const handleGenerate = async () => {
     if (!generatePrompt.trim()) return;
     setIsGenerating(true);
@@ -143,15 +188,12 @@ const App: React.FC = () => {
     try {
       const generated = await generateProjectPlan(generatePrompt, project.resources);
       if (generated.tasks) {
-        setProject(prev => {
-            const newTasks = calculateCPM(generated.tasks!);
-            return {
-                ...prev,
-                tasks: newTasks,
-                meetings: generated.meetings || [],
-                charter: generated.charter
-            };
-        });
+        handleProjectChange({
+             ...project,
+             tasks: calculateCPM(generated.tasks!),
+             meetings: generated.meetings || [],
+             charter: generated.charter
+        }, "Generated New Plan via AI");
         setIsGenerateModalOpen(false);
         setGeneratePrompt('');
       }
@@ -242,6 +284,7 @@ const App: React.FC = () => {
               prompt: `Analysis request for ${category}`,
               response: advice
           };
+          // Don't use handleProjectChange for AI Logs to keep Undo History clean for structural changes
           setProject(prev => ({
               ...prev,
               aiQueryLog: [logEntry, ...(prev.aiQueryLog || [])]
@@ -368,17 +411,6 @@ const App: React.FC = () => {
             await captureAndDownload('gantt-chart-inner', 'GANTT');
         } else if (viewMode === 'PERT') {
             await captureAndDownload('pert-chart-container', 'PERT', true);
-        } else if (viewMode === 'REPORT') {
-             // Report view capture requires wrapper ID on report view
-             // For now, let's just capture the visible area
-             // Or maybe disable export for report?
-             // Let's assume the user is aware export primarily works for charts.
-        } else if (viewMode === 'CHARTER') {
-             // Basic capture for charter
-             // Assuming the user views it fully, but a scrolling capture is complex.
-             // We'll rely on browser print for documents usually, but PNG export is requested.
-             // Since CharterView uses a fixed container, we might need a specific ID wrapper.
-             // For now, disabling explicit image export for document views is acceptable or use the generic fallback.
         }
     } finally {
         setIsExporting(false);
@@ -394,11 +426,10 @@ const App: React.FC = () => {
           try {
               const content = e.target?.result as string;
               const parsed = JSON.parse(content);
-              // Basic validation
               if (parsed.tasks && parsed.resources) {
-                  setProject(parsed);
-                  // Trigger calculation immediately
-                  setProject(prev => ({ ...prev, tasks: calculateCPM(prev.tasks) }));
+                  // Push a "Loaded Project" state to history before overwriting
+                  handleProjectChange(parsed, `Imported ${file.name}`);
+                  // Note: handleProjectChange already sets project, so we are good.
               } else {
                   alert("Invalid project file format");
               }
@@ -407,18 +438,19 @@ const App: React.FC = () => {
           }
       };
       reader.readAsText(file);
-      // Reset input
       event.target.value = '';
   };
 
   const loadSampleData = () => {
-      setProject(SAMPLE_PROJECT);
-      setProject(prev => ({ ...prev, tasks: calculateCPM(SAMPLE_PROJECT.tasks) }));
+      handleProjectChange(SAMPLE_PROJECT, "Loaded Demo Data");
   };
 
   const totalCost = calculateProjectCost(project);
   const criticalPathLength = Math.max(...project.tasks.map(t => t.earlyFinish), 0);
   const riskCount = project.tasks.reduce((acc, t) => acc + t.risks.length, 0);
+
+  // Determine last action for Undo Tooltip
+  const lastAction = history.length > 0 ? history[history.length - 1].action : null;
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 text-slate-800 font-sans">
@@ -426,7 +458,7 @@ const App: React.FC = () => {
       <header className="flex items-center justify-between px-6 py-4 bg-white shadow-sm z-20">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">SP</div>
-          <h1 className="text-xl font-bold text-slate-800 tracking-tight">SmartPath AI</h1>
+          <h1 className="text-xl font-bold text-slate-800 tracking-tight">SmartPath</h1>
         </div>
 
         <div className="flex items-center gap-4">
@@ -444,6 +476,48 @@ const App: React.FC = () => {
 
            {/* Actions */}
            <div className="flex items-center gap-2">
+                {/* Undo Button */}
+                <div className="relative">
+                     <button 
+                        onClick={handleUndo}
+                        disabled={history.length === 0}
+                        onMouseEnter={() => setIsHistoryDropdownOpen(true)}
+                        className={`p-2 rounded-full transition-colors flex items-center gap-1 ${history.length === 0 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-500 hover:bg-slate-100 hover:text-indigo-600'}`}
+                        title={lastAction ? `Undo: ${lastAction}` : 'Undo'}
+                     >
+                        <UndoIcon />
+                        {history.length > 0 && <span className="text-[10px] font-bold bg-slate-100 px-1 rounded">{history.length}</span>}
+                     </button>
+                     
+                     {/* History Dropdown */}
+                     {isHistoryDropdownOpen && history.length > 0 && (
+                         <div 
+                            className="absolute top-full right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-100"
+                            onMouseLeave={() => setIsHistoryDropdownOpen(false)}
+                         >
+                            <div className="bg-slate-50 px-4 py-2 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase">History</div>
+                            <div className="max-h-64 overflow-y-auto">
+                                {[...history].reverse().map((state, idx) => {
+                                    // Real index in history array
+                                    const realIdx = history.length - 1 - idx;
+                                    return (
+                                        <button 
+                                            key={realIdx}
+                                            onClick={() => handleRollbackTo(realIdx)}
+                                            className="w-full text-left px-4 py-3 text-xs hover:bg-slate-50 border-b border-slate-50 last:border-0 flex flex-col group"
+                                        >
+                                            <span className="font-medium text-slate-700 group-hover:text-indigo-600">{state.action}</span>
+                                            <span className="text-[10px] text-slate-400">Step {realIdx + 1}</span>
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                         </div>
+                     )}
+                </div>
+
+                <div className="h-6 w-px bg-slate-200 mx-2"></div>
+
                 <button 
                     onClick={handleExport}
                     className="p-2 text-slate-500 hover:bg-slate-100 rounded-full hover:text-indigo-600 transition-colors"
@@ -494,12 +568,6 @@ const App: React.FC = () => {
                     title="About SmartPath">
                     <InfoIcon />
                 </button>
-                
-                <button 
-                    onClick={loadSampleData}
-                    className="text-xs font-medium text-slate-500 hover:text-indigo-600 px-2 py-1 hover:bg-slate-100 rounded transition-colors">
-                    Load Demo
-                </button>
            </div>
 
            <div className="h-6 w-px bg-slate-200 mx-2"></div>
@@ -524,7 +592,7 @@ const App: React.FC = () => {
         
         {/* Editor Sidebar */}
         <div className="w-96 flex-shrink-0 p-4 border-r border-slate-200 bg-slate-50 overflow-hidden">
-           <Editor project={project} setProject={setProject} />
+           <Editor project={project} onProjectChange={handleProjectChange} />
         </div>
 
         {/* Visualization Area */}
@@ -592,6 +660,7 @@ const App: React.FC = () => {
                                     overlayMode={overlayMode} 
                                     selectedResourceId={selectedResourceId} 
                                     theme={theme}
+                                    onTaskClick={(id) => setSelectedTaskId(id)}
                                 />
                             </div>
                         )}
@@ -601,7 +670,7 @@ const App: React.FC = () => {
                                     project={project} 
                                     overlayMode={overlayMode} 
                                     selectedResourceId={selectedResourceId}
-                                    onTaskClick={(id) => console.log("Task clicked", id)} 
+                                    onTaskClick={(id) => setSelectedTaskId(id)} 
                                     theme={theme}
                                 />
                             </div>
@@ -609,7 +678,7 @@ const App: React.FC = () => {
                         {viewMode === 'REPORT' && (
                             <ReportView 
                                 project={project}
-                                setProject={setProject}
+                                onProjectChange={handleProjectChange}
                                 aiEnabled={aiEnabled}
                                 onAskAI={handleAskAI}
                             />
@@ -617,7 +686,7 @@ const App: React.FC = () => {
                         {viewMode === 'CHARTER' && (
                             <CharterView 
                                 project={project}
-                                setProject={setProject}
+                                onProjectChange={handleProjectChange}
                                 aiEnabled={aiEnabled}
                                 onAskAI={handleAskAI}
                             />
@@ -977,6 +1046,17 @@ const App: React.FC = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Task Modal */}
+            {selectedTaskId && (
+                <TaskModal 
+                    isOpen={!!selectedTaskId}
+                    task={project.tasks.find(t => t.id === selectedTaskId)!}
+                    project={project}
+                    onClose={() => setSelectedTaskId(null)}
+                    onSave={handleSaveFromModal}
+                />
             )}
 
         </div>

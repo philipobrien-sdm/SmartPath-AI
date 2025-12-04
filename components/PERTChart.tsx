@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import * as d3 from 'd3';
 import { Task, Project, OverlayMode, ThemeConfig } from '../types';
-import { calculateTaskCost, getRiskScore } from '../utils/scheduler';
+import { calculateTaskCost, getRiskScore, isTaskComplete, isTaskOverdue } from '../utils/scheduler';
 
 interface PERTChartProps {
   project: Project;
@@ -144,6 +144,9 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
       let borderColor = '#cbd5e1'; // slate-300
       let bgColor = '#ffffff';
 
+      const complete = isTaskComplete(task);
+      const overdue = isTaskOverdue(task, project.startDate);
+
       if (overlayMode === 'RISK') {
           const score = getRiskScore(task);
           if (score >= 15) { borderColor = theme.riskHigh; bgColor = hexToRgba(theme.riskHigh, 0.1); }
@@ -168,27 +171,18 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
           }
       }
       else {
-          // Standard view
-          if (task.isCritical) {
+          // Standard view with Status Colors
+          if (complete) {
+              borderColor = '#10b981'; // green-500
+              bgColor = '#ecfdf5'; // green-50
+          } else if (overdue) {
+              borderColor = '#ef4444'; // red-500
+              bgColor = '#fef2f2'; // red-50
+          } else if (task.isCritical) {
               borderColor = theme.taskCritical;
               bgColor = '#ffffff';
           } else {
-              borderColor = theme.taskDefault; // Or use standard grey for default border if not colored by default
-              // Actually, default border is usually subtle slate, but let's use the theme taskDefault as border color
-              // If taskDefault is the primary brand color (indigo), we can use it on hover, but static might be slate.
-              // Let's stick to using theme.taskDefault for non-critical border to make it customizable.
-              // Or keep slate for non-critical? The user wants to "set colors", implying the primary colors.
-              // Let's use theme.taskDefault for non-critical nodes to honor the setting.
-              // But strictly speaking, standard nodes are usually white/grey. 
-              // Let's use a standard slate for default border, and taskDefault for headers/accents? 
-              // The request was "colors of the Gannt and PERT".
-              // In Gantt, taskDefault is the bar color.
-              // In PERT, let's make the border color theme.taskDefault for non-critical nodes, or slate if we want to distinguish.
-              // Let's use theme.taskDefault for consistency.
-              // Actually, previous implementation used slate-400 for non-critical.
-              // Let's use theme.taskDefault if provided, or fallback to slate.
-              // Let's make non-critical nodes use the `taskDefault` color for border.
-              borderColor = '#94a3b8'; // slate-400 as base
+              borderColor = '#94a3b8'; // slate-400
           }
       }
 
@@ -217,6 +211,10 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
             <marker id="arrow-head-critical" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
                 <path d="M 0 0 L 10 5 L 0 10 z" fill={theme.linkCritical} />
             </marker>
+             <pattern id="diagonalHatch" patternUnits="userSpaceOnUse" width="8" height="8">
+                <path d="M-2,2 l4,-4 M0,8 l8,-8 M6,10 l4,-4" 
+                    style={{stroke:theme.riskHigh, strokeWidth:1}} />
+            </pattern>
         </defs>
         <g id="pert-group" transform={zoomTransform.toString()}>
             
@@ -249,6 +247,10 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
                 const cost = calculateTaskCost(node, project.resources);
                 const riskScore = getRiskScore(node);
                 const styles = getNodeStyles(node);
+                const complete = isTaskComplete(node);
+                const overdue = isTaskOverdue(node, project.startDate);
+                const deliveredCount = (node.deliverables || []).filter(d => d.url).length;
+                const totalDeliverables = (node.deliverables || []).length;
                 
                 return (
                     <foreignObject 
@@ -262,13 +264,17 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
                         {/* Explicit styles for export */}
                         <div 
                             onClick={(e) => { e.stopPropagation(); onTaskClick(node.id); }}
-                            className={`w-full h-full rounded-lg shadow-sm transition-all duration-200 flex flex-col p-3 hover:shadow-md`}
+                            className={`w-full h-full rounded-lg shadow-sm transition-all duration-200 flex flex-col p-3 hover:shadow-md relative`}
                             style={{ 
                                 boxSizing: 'border-box',
                                 borderStyle: 'solid',
                                 ...styles
                             }}
                         >
+                            {overdue && !complete && (
+                                <div className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full animate-pulse -mr-1 -mt-1 border border-white"></div>
+                            )}
+
                             {/* Header */}
                             <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
                                 <h3 className="font-bold text-sm text-slate-800 leading-tight line-clamp-2" title={node.name}>{node.name}</h3>
@@ -292,6 +298,17 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
                                     </span>
                                 </div>
                                 
+                                {/* Deliverables Progress */}
+                                {totalDeliverables > 0 && (
+                                    <div className="flex items-center gap-1 text-[10px] text-slate-600 font-medium">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 text-indigo-500">
+                                          <path d="M10 2a.75.75 0 01.75.75v5.59l2.68-2.68a.75.75 0 111.06 1.06l-4 4a.75.75 0 01-1.06 0l-4-4a.75.75 0 011.06-1.06l2.68 2.68V2.75A.75.75 0 0110 2z" />
+                                          <path d="M2.75 13a.75.75 0 000 1.5h14.5a.75.75 0 000-1.5H2.75z" />
+                                        </svg>
+                                        Docs: {deliveredCount} / {totalDeliverables}
+                                    </div>
+                                )}
+                                
                                 {/* Resources */}
                                 <div className="flex flex-wrap gap-1 mt-1">
                                     {node.resources.length === 0 && <span className="text-[10px] text-slate-300 italic">No resources</span>}
@@ -310,6 +327,16 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
                             
                             {/* Footer Badges */}
                             <div className="mt-auto pt-2 flex gap-2 justify-end">
+                                {complete && (
+                                    <span className="text-[10px] font-bold text-green-700 bg-green-100 px-1.5 rounded flex items-center">
+                                        ✓ Done
+                                    </span>
+                                )}
+                                {overdue && !complete && (
+                                    <span className="text-[10px] font-bold text-red-700 bg-red-100 px-1.5 rounded animate-pulse">
+                                        ! LATE
+                                    </span>
+                                )}
                                 {riskScore > 5 && (
                                     <span className="text-[10px] font-bold text-orange-600 bg-orange-100 px-1.5 rounded" title="Risk Score">
                                         ⚠ {riskScore}

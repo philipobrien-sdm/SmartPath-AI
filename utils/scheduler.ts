@@ -128,3 +128,52 @@ export const getDailyResourceUsage = (project: Project, day: number, resourceId:
   });
   return totalPercent;
 };
+
+// --- Completion & Status Logic ---
+
+export const isTaskComplete = (task: Task): boolean => {
+  // If task has no deliverables, it relies on manual `actualEndDate` for completeness
+  if (task.deliverables.length === 0) {
+      return !!task.actualEndDate;
+  }
+  // If task has deliverables, ALL must have a URL (be submitted)
+  return task.deliverables.every(d => d.url && d.url.trim().length > 0);
+};
+
+export const getTaskStatusColor = (task: Task, projectStartDate: string, theme: any): string => {
+    const isComplete = isTaskComplete(task);
+    
+    if (isComplete) return '#10b981'; // green-500
+
+    // Check for Overdue
+    // Calculate expected finish date
+    const start = new Date(projectStartDate);
+    const expectedFinish = new Date(start);
+    expectedFinish.setDate(start.getDate() + task.earlyFinish);
+    
+    const today = new Date();
+    // Reset times to compare dates only
+    today.setHours(0,0,0,0);
+    expectedFinish.setHours(0,0,0,0);
+
+    if (today > expectedFinish) {
+        // Overdue and not complete
+        return 'OVERDUE_PATTERN'; // Handled in renderers
+    }
+
+    return task.isCritical ? theme.taskCritical : theme.taskDefault;
+};
+
+export const isTaskOverdue = (task: Task, projectStartDate: string): boolean => {
+    if (isTaskComplete(task)) return false;
+
+    const start = new Date(projectStartDate);
+    const expectedFinish = new Date(start);
+    expectedFinish.setDate(start.getDate() + task.earlyFinish);
+    
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    expectedFinish.setHours(0,0,0,0);
+
+    return today > expectedFinish;
+};

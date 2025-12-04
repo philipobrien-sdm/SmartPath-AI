@@ -1,0 +1,13 @@
+Since I cannot save binary images, please save your screenshots in this folder using the filenames below to match the README.md links:
+
+1.  gantt.png        (Gantt Chart View)
+2.  pert.png         (PERT Chart View)
+3.  charter.png      (Project Charter View)
+4.  history.png      (Undo/History Dropdown)
+5.  risk_matrix.png  (The 5x5 Colored Risk Grid)
+6.  risk_table.png   (The list of risks)
+7.  meetings.png     (Meeting Log View)
+8.  actions.png      (Action Items View)
+9.  ai_advisor.png   (The AI Modal Pop-up)
+
+Once saved here, the images will appear in your README.

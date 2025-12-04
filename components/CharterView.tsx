@@ -3,12 +3,12 @@ import { Project, ProjectCharter } from '../types';
 
 interface CharterViewProps {
   project: Project;
-  setProject: React.Dispatch<React.SetStateAction<Project>>;
+  onProjectChange: (project: Project, action: string) => void;
   aiEnabled?: boolean;
   onAskAI?: (category: 'OPTIMIZATION' | 'RISK' | 'MEETING' | 'CHARTER' | 'GENERAL', context?: string) => void;
 }
 
-const CharterView: React.FC<CharterViewProps> = ({ project, setProject, aiEnabled, onAskAI }) => {
+const CharterView: React.FC<CharterViewProps> = ({ project, onProjectChange, aiEnabled, onAskAI }) => {
   
   // Ensure charter exists
   const charter = project.charter || {
@@ -24,11 +24,11 @@ const CharterView: React.FC<CharterViewProps> = ({ project, setProject, aiEnable
     constraints: []
   };
 
-  const updateCharter = (updates: Partial<ProjectCharter>) => {
-      setProject(prev => ({
-          ...prev,
+  const updateCharter = (updates: Partial<ProjectCharter>, desc: string) => {
+      onProjectChange({
+          ...project,
           charter: { ...charter, ...updates }
-      }));
+      }, desc);
   };
 
   // Helper for array list editing
@@ -39,13 +39,13 @@ const CharterView: React.FC<CharterViewProps> = ({ project, setProject, aiEnable
 
       const add = () => {
           if(!newItem.trim()) return;
-          updateCharter({ [fieldKey]: [...items, newItem] });
+          updateCharter({ [fieldKey]: [...items, newItem] }, `Added ${fieldKey} item`);
           setNewItem('');
       };
 
       const remove = (idx: number) => {
           const newItems = items.filter((_, i) => i !== idx);
-          updateCharter({ [fieldKey]: newItems });
+          updateCharter({ [fieldKey]: newItems }, `Removed ${fieldKey} item`);
       };
 
       const startEdit = (index: number, text: string) => {
@@ -57,7 +57,7 @@ const CharterView: React.FC<CharterViewProps> = ({ project, setProject, aiEnable
           if (!editingText.trim()) return;
           const newItems = [...items];
           newItems[index] = editingText;
-          updateCharter({ [fieldKey]: newItems });
+          updateCharter({ [fieldKey]: newItems }, `Edited ${fieldKey} item`);
           setEditingIndex(null);
           setEditingText('');
       };
@@ -160,7 +160,7 @@ const CharterView: React.FC<CharterViewProps> = ({ project, setProject, aiEnable
                         rows={4}
                         placeholder="Brief overview of the project purpose and business case..."
                         value={charter.overview}
-                        onChange={(e) => updateCharter({ overview: e.target.value })}
+                        onChange={(e) => updateCharter({ overview: e.target.value }, "Updated Overview")}
                     />
                 </section>
 
@@ -172,7 +172,7 @@ const CharterView: React.FC<CharterViewProps> = ({ project, setProject, aiEnable
                             className="w-full p-2 border-b-2 border-slate-100 focus:border-indigo-500 outline-none font-medium text-slate-800 transition-colors"
                             placeholder="Name / Title"
                             value={charter.sponsor}
-                            onChange={(e) => updateCharter({ sponsor: e.target.value })}
+                            onChange={(e) => updateCharter({ sponsor: e.target.value }, "Updated Sponsor")}
                         />
                     </div>
                     <div>
@@ -181,7 +181,7 @@ const CharterView: React.FC<CharterViewProps> = ({ project, setProject, aiEnable
                             className="w-full p-2 border-b-2 border-slate-100 focus:border-indigo-500 outline-none font-medium text-slate-800 transition-colors"
                             placeholder="Name"
                             value={charter.manager}
-                            onChange={(e) => updateCharter({ manager: e.target.value })}
+                            onChange={(e) => updateCharter({ manager: e.target.value }, "Updated Manager")}
                         />
                     </div>
                 </section>

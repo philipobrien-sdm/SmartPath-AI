@@ -14,6 +14,12 @@ export interface Risk {
   status?: 'OPEN' | 'WATCHING' | 'MITIGATED' | 'CLOSED';
 }
 
+export interface Deliverable {
+  id: string;
+  name: string;
+  url?: string; // If present (non-empty), it is considered submitted/delivered
+}
+
 export interface ResourceAllocation {
   resourceId: string;
   percentage: number; // 0-100+
@@ -53,10 +59,13 @@ export interface Task {
   predecessors: string[]; // IDs of parent tasks
   resources: ResourceAllocation[];
   risks: Risk[];
+  deliverables: Deliverable[]; // Task is complete when all deliverables have a URL
   fixedCost: number; // Additional fixed costs separate from resources
   actions: ActionItem[];
   notes: string;
   
+  actualEndDate?: string; // User manual override for completion date (ISO String)
+
   // Calculated fields (CPM)
   earlyStart: number;
   earlyFinish: number;

@@ -3,7 +3,7 @@ import { Project, Task, ActionItem, Meeting, Risk } from '../types';
 
 interface ReportViewProps {
   project: Project;
-  setProject: React.Dispatch<React.SetStateAction<Project>>;
+  onProjectChange: (project: Project, action: string) => void;
   aiEnabled?: boolean;
   onAskAI?: (category: 'OPTIMIZATION' | 'RISK' | 'MEETING' | 'CHARTER' | 'GENERAL', context?: string) => void;
 }
@@ -21,7 +21,7 @@ interface RiskEditState {
     status: Risk['status'];
 }
 
-const ReportView: React.FC<ReportViewProps> = ({ project, setProject, aiEnabled, onAskAI }) => {
+const ReportView: React.FC<ReportViewProps> = ({ project, onProjectChange, aiEnabled, onAskAI }) => {
   const [activeTab, setActiveTab] = useState<'RISKS' | 'ACTIONS' | 'MEETINGS'>('RISKS');
   const [actionFilter, setActionFilter] = useState<ActionFilter>('ALL');
   const [upcomingDays, setUpcomingDays] = useState(7);
@@ -48,7 +48,7 @@ const ReportView: React.FC<ReportViewProps> = ({ project, setProject, aiEnabled,
 
   const getFilteredActions = () => {
     const projectStart = new Date(project.startDate);
-    const today = new Date(); // In a real app, might want to allow setting "current date" for simulation
+    const today = new Date(); 
 
     return project.tasks.flatMap(task => {
       const taskStart = addDays(projectStart, task.earlyStart);
@@ -61,7 +61,6 @@ const ReportView: React.FC<ReportViewProps> = ({ project, setProject, aiEnabled,
       if (actionFilter === 'ALL') include = true;
       else if (actionFilter === 'CRITICAL') include = task.isCritical;
       else if (actionFilter === 'CURRENT') {
-         // Simple overlap check
          include = today >= taskStart && today <= taskEnd;
       } else if (actionFilter === 'UPCOMING') {
          const threshold = addDays(today, upcomingDays);
@@ -76,16 +75,16 @@ const ReportView: React.FC<ReportViewProps> = ({ project, setProject, aiEnabled,
   };
 
   const toggleAction = (taskId: string, actionId: string) => {
-      setProject(prev => ({
-          ...prev,
-          tasks: prev.tasks.map(t => {
+      onProjectChange({
+          ...project,
+          tasks: project.tasks.map(t => {
               if (t.id !== taskId) return t;
               return {
                   ...t,
                   actions: t.actions.map(a => a.id === actionId ? { ...a, isCompleted: !a.isCompleted } : a)
               };
           })
-      }));
+      }, "Toggled Action");
   };
 
   const saveMeeting = () => {
@@ -97,10 +96,10 @@ const ReportView: React.FC<ReportViewProps> = ({ project, setProject, aiEnabled,
           attendees: newMeeting.attendees || '',
           notes: newMeeting.notes || ''
       };
-      setProject(prev => ({
-          ...prev,
-          meetings: [meeting, ...(prev.meetings || [])].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      }));
+      onProjectChange({
+          ...project,
+          meetings: [meeting, ...(project.meetings || [])].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      }, "Added Meeting Log");
       setIsAddingMeeting(false);
       setNewMeeting({
         date: new Date().toISOString().split('T')[0],
@@ -111,10 +110,10 @@ const ReportView: React.FC<ReportViewProps> = ({ project, setProject, aiEnabled,
   };
 
   const deleteMeeting = (id: string) => {
-      setProject(prev => ({
-          ...prev,
-          meetings: prev.meetings.filter(m => m.id !== id)
-      }));
+      onProjectChange({
+          ...project,
+          meetings: project.meetings.filter(m => m.id !== id)
+      }, "Deleted Meeting Log");
   };
 
   // --- Risk Handling ---
@@ -134,9 +133,9 @@ const ReportView: React.FC<ReportViewProps> = ({ project, setProject, aiEnabled,
 
   const saveRiskEdit = () => {
       if (!editingRisk) return;
-      setProject(prev => ({
-          ...prev,
-          tasks: prev.tasks.map(t => {
+      onProjectChange({
+          ...project,
+          tasks: project.tasks.map(t => {
               if (t.id !== editingRisk.taskId) return t;
               return {
                   ...t,
@@ -151,7 +150,7 @@ const ReportView: React.FC<ReportViewProps> = ({ project, setProject, aiEnabled,
                   } : r)
               };
           })
-      }));
+      }, "Updated Risk Details");
       setEditingRisk(null);
   };
 
@@ -192,8 +191,7 @@ const ReportView: React.FC<ReportViewProps> = ({ project, setProject, aiEnabled,
 
   return (
     <div className="w-full h-full bg-white rounded-xl shadow-inner border border-slate-200 overflow-hidden flex flex-col">
-      
-      {/* Tabs */}
+      {/* ... tabs ... */}
       <div className="flex bg-slate-50 border-b border-slate-200 px-6 pt-4">
           <button 
               onClick={() => setActiveTab('RISKS')}
@@ -245,16 +243,9 @@ const ReportView: React.FC<ReportViewProps> = ({ project, setProject, aiEnabled,
                               
                               <div>
                                 <div className="grid grid-cols-5 gap-1 mb-1 relative">
-                                    {/* Matrix Rows */}
                                     {matrix.map((row, rowIndex) => (
                                         <React.Fragment key={rowIndex}>
-                                            {/* Y-Axis Value */}
-                                            {/* We can overlay numbers or just headers */}
                                             {row.map((count, colIndex) => {
-                                                // Color logic
-                                                // High (Red): Prob * Imp >= 15
-                                                // Med (Yellow): Prob * Imp >= 5
-                                                // Low (Green): < 5
                                                 const prob = 5 - rowIndex;
                                                 const imp = colIndex + 1;
                                                 const score = prob * imp;
@@ -275,7 +266,6 @@ const ReportView: React.FC<ReportViewProps> = ({ project, setProject, aiEnabled,
                                         </React.Fragment>
                                     ))}
                                 </div>
-                                {/* X-Axis Label */}
                                 <div className="text-center text-xs font-bold text-slate-400 tracking-wider mt-2">
                                     IMPACT
                                 </div>
@@ -288,17 +278,14 @@ const ReportView: React.FC<ReportViewProps> = ({ project, setProject, aiEnabled,
                            <div className="bg-red-50 border border-red-100 p-4 rounded-xl">
                                <div className="text-red-500 font-bold text-2xl">{risksList.filter(r => r.prob * r.imp >= 15).length}</div>
                                <div className="text-red-700 text-sm font-medium">Critical Risks</div>
-                               <div className="text-red-400 text-xs mt-1">Requires immediate mitigation</div>
                            </div>
                            <div className="bg-orange-50 border border-orange-100 p-4 rounded-xl">
                                <div className="text-orange-500 font-bold text-2xl">{risksList.filter(r => r.prob * r.imp >= 5 && r.prob * r.imp < 15).length}</div>
                                <div className="text-orange-700 text-sm font-medium">Moderate Risks</div>
-                               <div className="text-orange-400 text-xs mt-1">Monitor regularly</div>
                            </div>
                            <div className="bg-green-50 border border-green-100 p-4 rounded-xl">
                                <div className="text-green-500 font-bold text-2xl">{risksList.filter(r => r.prob * r.imp < 5).length}</div>
                                <div className="text-green-700 text-sm font-medium">Low Risks</div>
-                               <div className="text-green-400 text-xs mt-1">Periodic review</div>
                            </div>
                            <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl">
                                <div className="text-slate-500 font-bold text-2xl">{risksList.length}</div>
@@ -311,15 +298,15 @@ const ReportView: React.FC<ReportViewProps> = ({ project, setProject, aiEnabled,
                   <div>
                       <h3 className="text-lg font-bold text-slate-800 mb-4">Risk Register</h3>
                       <div className="overflow-x-auto rounded-lg border border-slate-200">
-                        <table className="min-w-full text-left text-sm whitespace-nowrap">
+                        <table className="min-w-full text-left text-sm">
                             <thead className="uppercase tracking-wider border-b border-slate-200 bg-slate-50 text-slate-500 font-semibold">
                                 <tr>
-                                    <th scope="col" className="px-6 py-3">Score</th>
-                                    <th scope="col" className="px-6 py-3">Task / Status</th>
-                                    <th scope="col" className="px-6 py-3 w-1/3">Description & Mitigation</th>
-                                    <th scope="col" className="px-6 py-3">Prob</th>
-                                    <th scope="col" className="px-6 py-3">Impact</th>
-                                    <th scope="col" className="px-6 py-3">Actions</th>
+                                    <th scope="col" className="px-6 py-3 whitespace-nowrap">Score</th>
+                                    <th scope="col" className="px-6 py-3 whitespace-nowrap">Task / Status</th>
+                                    <th scope="col" className="px-6 py-3 w-1/3 min-w-[300px]">Description & Mitigation</th>
+                                    <th scope="col" className="px-6 py-3 whitespace-nowrap">Prob</th>
+                                    <th scope="col" className="px-6 py-3 whitespace-nowrap">Impact</th>
+                                    <th scope="col" className="px-6 py-3 whitespace-nowrap">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -333,78 +320,80 @@ const ReportView: React.FC<ReportViewProps> = ({ project, setProject, aiEnabled,
                                     if (isEditing) {
                                         return (
                                             <tr key={`${risk.taskId}-${risk.riskId}`} className="bg-indigo-50 border-b border-slate-200">
-                                                <td className="px-6 py-4 font-bold text-slate-500">
+                                                <td className="px-6 py-4 font-bold text-slate-500 align-top whitespace-nowrap">
                                                     {editingRisk!.probability * editingRisk!.impact}
                                                 </td>
-                                                <td className="px-6 py-4">
+                                                <td className="px-6 py-4 align-top">
                                                     <div className="font-bold text-indigo-800 mb-2">{risk.taskName}</div>
-                                                    <div className="flex gap-2">
+                                                    <div className="flex flex-col gap-2">
                                                         <input 
-                                                            className="w-full p-1 text-xs border rounded mb-1"
-                                                            placeholder="Owner"
+                                                            className="w-full p-1.5 text-xs border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                            placeholder="Owner Name"
                                                             value={editingRisk!.owner}
                                                             onChange={e => setEditingRisk({...editingRisk!, owner: e.target.value})}
                                                         />
                                                         <select
-                                                            className="text-xs border rounded p-1"
+                                                            className="w-full p-1.5 text-xs border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
                                                             value={editingRisk!.status}
                                                             onChange={e => setEditingRisk({...editingRisk!, status: e.target.value as any})}
                                                         >
-                                                            <option value="OPEN">OPEN</option>
-                                                            <option value="WATCHING">WATCHING</option>
-                                                            <option value="MITIGATED">MITIGATED</option>
-                                                            <option value="CLOSED">CLOSED</option>
+                                                            <option value="OPEN">Status: OPEN</option>
+                                                            <option value="WATCHING">Status: WATCHING</option>
+                                                            <option value="MITIGATED">Status: MITIGATED</option>
+                                                            <option value="CLOSED">Status: CLOSED</option>
                                                         </select>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4">
+                                                <td className="px-6 py-4 align-top">
                                                     <input 
-                                                        className="w-full p-2 border rounded mb-2 text-sm"
+                                                        className="w-full p-2 border border-slate-300 rounded mb-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                                                         value={editingRisk!.description}
                                                         onChange={e => setEditingRisk({...editingRisk!, description: e.target.value})}
                                                         placeholder="Risk Description"
                                                     />
                                                     <textarea 
-                                                        className="w-full p-2 border rounded text-xs h-16"
+                                                        className="w-full p-2 border border-slate-300 rounded text-xs h-20 focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
                                                         value={editingRisk!.mitigation}
                                                         onChange={e => setEditingRisk({...editingRisk!, mitigation: e.target.value})}
                                                         placeholder="Mitigation Strategy"
                                                     />
                                                 </td>
-                                                <td className="px-6 py-4">
+                                                <td className="px-6 py-4 align-top whitespace-nowrap">
                                                     <select 
-                                                        className="p-2 border rounded"
+                                                        className="p-2 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
                                                         value={editingRisk!.probability}
                                                         onChange={e => setEditingRisk({...editingRisk!, probability: parseInt(e.target.value)})}
                                                     >
                                                         {[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
                                                     </select>
                                                 </td>
-                                                <td className="px-6 py-4">
+                                                <td className="px-6 py-4 align-top whitespace-nowrap">
                                                     <select 
-                                                        className="p-2 border rounded"
+                                                        className="p-2 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
                                                         value={editingRisk!.impact}
                                                         onChange={e => setEditingRisk({...editingRisk!, impact: parseInt(e.target.value)})}
                                                     >
                                                         {[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
                                                     </select>
                                                 </td>
-                                                <td className="px-6 py-4">
-                                                    <button onClick={saveRiskEdit} className="text-xs bg-green-600 text-white px-3 py-1.5 rounded hover:bg-green-700 mr-2">Save</button>
-                                                    <button onClick={() => setEditingRisk(null)} className="text-xs text-slate-500 hover:text-slate-700">Cancel</button>
+                                                <td className="px-6 py-4 align-top whitespace-nowrap">
+                                                    <div className="flex flex-col gap-2">
+                                                        <button onClick={saveRiskEdit} className="text-xs bg-green-600 text-white px-3 py-1.5 rounded hover:bg-green-700 transition-colors w-full text-center">Save</button>
+                                                        <button onClick={() => setEditingRisk(null)} className="text-xs text-slate-500 hover:text-slate-700 transition-colors w-full text-center">Cancel</button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         )
                                     }
 
                                     return (
-                                        <tr key={`${risk.taskId}-${risk.riskId}`} className="border-b border-slate-100 hover:bg-slate-50">
-                                            <td className="px-6 py-4 align-top">
+                                        <tr key={`${risk.taskId}-${risk.riskId}`} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                                            <td className="px-6 py-4 align-top whitespace-nowrap">
                                                 <span className={`px-2 py-1 rounded text-xs font-bold ${badgeColor}`}>{score}</span>
                                             </td>
                                             <td className="px-6 py-4 align-top">
                                                 <div className="font-medium text-slate-800">{risk.taskName}</div>
-                                                <div className="flex gap-2 mt-1">
+                                                <div className="flex gap-2 mt-1 flex-wrap">
                                                      <span className={`text-[10px] px-1.5 py-0.5 rounded border uppercase font-bold tracking-wider ${
                                                         risk.status === 'CLOSED' ? 'bg-slate-100 text-slate-500 border-slate-200' : 
                                                         risk.status === 'MITIGATED' ? 'bg-green-50 text-green-600 border-green-200' : 
@@ -421,10 +410,10 @@ const ReportView: React.FC<ReportViewProps> = ({ project, setProject, aiEnabled,
                                                     {risk.mitigation || "No mitigation strategy defined."}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 align-top">{risk.prob}</td>
-                                            <td className="px-6 py-4 align-top">{risk.imp}</td>
-                                            <td className="px-6 py-4 align-top">
-                                                <button onClick={() => handleEditRisk(risk.fullTask, risk.fullRisk)} className="text-indigo-600 hover:text-indigo-800 text-xs font-medium">
+                                            <td className="px-6 py-4 align-top whitespace-nowrap">{risk.prob}</td>
+                                            <td className="px-6 py-4 align-top whitespace-nowrap">{risk.imp}</td>
+                                            <td className="px-6 py-4 align-top whitespace-nowrap">
+                                                <button onClick={() => handleEditRisk(risk.fullTask, risk.fullRisk)} className="text-indigo-600 hover:text-indigo-800 text-xs font-medium transition-colors">
                                                     Edit / Mitigate
                                                 </button>
                                             </td>
@@ -442,8 +431,7 @@ const ReportView: React.FC<ReportViewProps> = ({ project, setProject, aiEnabled,
                   </div>
               </div>
           )}
-
-          {/* ACTIONS VIEW */}
+          {/* ... other views ... */}
           {activeTab === 'ACTIONS' && (
               <div className="flex flex-col gap-6">
                   {/* Controls */}

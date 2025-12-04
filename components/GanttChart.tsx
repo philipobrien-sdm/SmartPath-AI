@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Project, Task, OverlayMode, ThemeConfig } from '../types';
-import { getRiskScore, calculateTaskCost, getDailyResourceUsage } from '../utils/scheduler';
+import { getRiskScore, calculateTaskCost, getDailyResourceUsage, isTaskComplete, isTaskOverdue } from '../utils/scheduler';
 import * as d3 from 'd3';
 
 interface GanttChartProps {
@@ -8,9 +8,10 @@ interface GanttChartProps {
   overlayMode: OverlayMode;
   selectedResourceId?: string;
   theme: ThemeConfig;
+  onTaskClick?: (taskId: string) => void;
 }
 
-const GanttChart: React.FC<GanttChartProps> = ({ project, overlayMode, selectedResourceId, theme }) => {
+const GanttChart: React.FC<GanttChartProps> = ({ project, overlayMode, selectedResourceId, theme, onTaskClick }) => {
   const chartHeight = Math.max(project.tasks.length * 40 + 50, 400);
   const rowHeight = 40;
   const headerHeight = 40;
@@ -35,7 +36,30 @@ const GanttChart: React.FC<GanttChartProps> = ({ project, overlayMode, selectedR
        const alloc = task.resources.find(r => r.resourceId === selectedResourceId);
        return alloc ? (alloc.percentage > 100 ? theme.resourceOverload : theme.resourceNormal) : '#e2e8f0'; // slate-200
     }
+    
+    // Status Logic
+    if (isTaskComplete(task)) return '#10b981'; // Green
+    if (isTaskOverdue(task, project.startDate)) return 'url(#diagonalHatch)'; // Red hatch pattern
+
     return task.isCritical ? theme.taskCritical : theme.taskDefault;
+  };
+
+  const getTaskStyle = (task: Task) => {
+      const bg = getTaskColor(task);
+      const isOverdue = isTaskOverdue(task, project.startDate);
+      
+      // If overdue and using pattern, we need a base color fallback for text contrast or non-svg contexts
+      // But here we use standard div. Patterns in CSS are tricky without SVG.
+      // Let's use CSS striping for overdue.
+      
+      if (isOverdue && !isTaskComplete(task)) {
+          return {
+              backgroundImage: 'repeating-linear-gradient(45deg, #ef4444, #ef4444 10px, #f87171 10px, #f87171 20px)',
+              color: 'white'
+          }
+      }
+
+      return { backgroundColor: bg, color: 'white' };
   };
 
   // Resource Heatmap Data
@@ -84,38 +108,46 @@ const GanttChart: React.FC<GanttChartProps> = ({ project, overlayMode, selectedR
              ))}
           </div>
 
-          {project.tasks.map((task, idx) => (
-            <div key={task.id} className="flex border-b border-slate-50 hover:bg-slate-50 transition-colors h-[40px] items-center group relative">
-              <div className="w-48 flex-shrink-0 px-4 text-sm font-medium text-slate-700 truncate border-r border-slate-200 z-10 bg-white group-hover:bg-slate-50">
-                {task.name}
-              </div>
-              <div className="flex-1 relative h-full">
-                {/* Task Bar */}
-                <div
-                  className={`absolute h-6 top-2 rounded-md shadow-sm transition-all duration-300 text-xs flex items-center justify-center text-white cursor-pointer`}
-                  style={{
-                    left: task.earlyStart * dayWidth,
-                    width: task.duration * dayWidth,
-                    backgroundColor: getTaskColor(task)
-                  }}
-                  title={`Start: ${task.earlyStart}, End: ${task.earlyFinish}, Slack: ${task.slack}`}
+          {project.tasks.map((task, idx) => {
+            const isOverdue = isTaskOverdue(task, project.startDate);
+            return (
+              <div key={task.id} className="flex border-b border-slate-50 hover:bg-slate-50 transition-colors h-[40px] items-center group relative">
+                <div 
+                    onClick={() => onTaskClick?.(task.id)}
+                    className="w-48 flex-shrink-0 px-4 text-sm font-medium text-slate-700 truncate border-r border-slate-200 z-10 bg-white group-hover:bg-slate-50 flex justify-between items-center cursor-pointer hover:text-indigo-600 transition-colors"
                 >
-                  {task.duration * dayWidth > 30 && <span className="truncate px-1">{task.name}</span>}
+                  <span>{task.name}</span>
+                  {isOverdue && !isTaskComplete(task) && <span className="text-[10px] bg-red-100 text-red-600 px-1 rounded font-bold">!</span>}
                 </div>
-                
-                {/* Slack indication (if not critical) */}
-                {!task.isCritical && task.slack > 0 && (
-                   <div 
-                    className="absolute h-1 top-4 bg-slate-300 opacity-50"
+                <div className="flex-1 relative h-full">
+                  {/* Task Bar */}
+                  <div
+                    onClick={(e) => { e.stopPropagation(); onTaskClick?.(task.id); }}
+                    className={`absolute h-6 top-2 rounded-md shadow-sm transition-all duration-300 text-xs flex items-center justify-center cursor-pointer hover:shadow-md hover:scale-[1.01]`}
                     style={{
-                        left: task.earlyFinish * dayWidth,
-                        width: task.slack * dayWidth
+                      left: task.earlyStart * dayWidth,
+                      width: task.duration * dayWidth,
+                      ...getTaskStyle(task)
                     }}
-                   />
-                )}
+                    title={`Start: ${task.earlyStart}, End: ${task.earlyFinish}, Slack: ${task.slack}`}
+                  >
+                    {task.duration * dayWidth > 30 && <span className="truncate px-1 shadow-black drop-shadow-md">{task.name}</span>}
+                  </div>
+                  
+                  {/* Slack indication (if not critical) */}
+                  {!task.isCritical && task.slack > 0 && (
+                     <div 
+                      className="absolute h-1 top-4 bg-slate-300 opacity-50"
+                      style={{
+                          left: task.earlyFinish * dayWidth,
+                          width: task.slack * dayWidth
+                      }}
+                     />
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Resource Heatmap Footer */}

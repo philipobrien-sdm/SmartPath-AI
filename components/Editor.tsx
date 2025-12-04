@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { Project, Task, Resource, Risk, ActionItem, BudgetEntry } from '../types';
+import { Project, Task, Resource, Risk, ActionItem, BudgetEntry, Deliverable } from '../types';
 
 interface EditorProps {
   project: Project;
-  setProject: React.Dispatch<React.SetStateAction<Project>>;
+  onProjectChange: (project: Project, action: string) => void;
 }
 
-const Editor: React.FC<EditorProps> = ({ project, setProject }) => {
+const Editor: React.FC<EditorProps> = ({ project, onProjectChange }) => {
   const [activeTab, setActiveTab] = useState<'TASKS' | 'RESOURCES'>('TASKS');
   const [newActionText, setNewActionText] = useState<{[key: string]: string}>({});
+  const [newDeliverableName, setNewDeliverableName] = useState<{[key: string]: string}>({});
   
   // Budget State
   const [newBudgetAmount, setNewBudgetAmount] = useState<string>('');
@@ -23,24 +24,29 @@ const Editor: React.FC<EditorProps> = ({ project, setProject }) => {
       resources: [],
       risks: [],
       actions: [],
+      deliverables: [],
       notes: '',
       fixedCost: 0,
       earlyStart: 0, earlyFinish: 0, lateStart: 0, lateFinish: 0, slack: 0, isCritical: false
     };
-    setProject(prev => ({ ...prev, tasks: [...prev.tasks, newTask] }));
+    onProjectChange({ ...project, tasks: [...project.tasks, newTask] }, "Added New Task");
   };
 
-  const updateTask = (taskId: string, updates: Partial<Task>) => {
-    setProject(prev => ({
-      ...prev,
-      tasks: prev.tasks.map(t => t.id === taskId ? { ...t, ...updates } : t)
-    }));
+  const updateTask = (taskId: string, updates: Partial<Task>, descSuffix: string) => {
+    onProjectChange({
+      ...project,
+      tasks: project.tasks.map(t => t.id === taskId ? { ...t, ...updates } : t)
+    }, `Updated Task ${taskId}: ${descSuffix}`);
+  };
+
+  const removeTask = (taskId: string) => {
+      onProjectChange({ ...project, tasks: project.tasks.filter(t => t.id !== taskId) }, `Removed Task ${taskId}`);
   };
 
   const updateResourceAlloc = (taskId: string, resourceId: string, percentage: number) => {
-    setProject(prev => ({
-      ...prev,
-      tasks: prev.tasks.map(t => {
+    onProjectChange({
+      ...project,
+      tasks: project.tasks.map(t => {
         if (t.id !== taskId) return t;
         const exists = t.resources.find(r => r.resourceId === resourceId);
         let newResources;
@@ -51,7 +57,7 @@ const Editor: React.FC<EditorProps> = ({ project, setProject }) => {
         }
         return { ...t, resources: newResources.filter(r => r.percentage > 0) };
       })
-    }));
+    }, `Updated Resource Alloc for ${taskId}`);
   };
 
   const addRisk = (taskId: string) => {
@@ -64,23 +70,23 @@ const Editor: React.FC<EditorProps> = ({ project, setProject }) => {
           owner: '',
           status: 'OPEN'
       };
-      setProject(prev => ({
-          ...prev,
-          tasks: prev.tasks.map(t => t.id === taskId ? { ...t, risks: [...t.risks, newRisk] } : t)
-      }));
+      onProjectChange({
+          ...project,
+          tasks: project.tasks.map(t => t.id === taskId ? { ...t, risks: [...t.risks, newRisk] } : t)
+      }, `Added Risk to ${taskId}`);
   };
 
   const updateRisk = (taskId: string, riskId: string, updates: Partial<Risk>) => {
-    setProject(prev => ({
-        ...prev,
-        tasks: prev.tasks.map(t => {
+    onProjectChange({
+        ...project,
+        tasks: project.tasks.map(t => {
             if (t.id !== taskId) return t;
             return {
                 ...t,
                 risks: t.risks.map(r => r.id === riskId ? { ...r, ...updates } : r)
             };
         })
-    }));
+    }, `Updated Risk on ${taskId}`);
   };
 
   const addAction = (taskId: string) => {
@@ -93,37 +99,81 @@ const Editor: React.FC<EditorProps> = ({ project, setProject }) => {
           isCompleted: false
       };
 
-      setProject(prev => ({
-          ...prev,
-          tasks: prev.tasks.map(t => t.id === taskId ? { ...t, actions: [...(t.actions || []), newAction] } : t)
-      }));
+      onProjectChange({
+          ...project,
+          tasks: project.tasks.map(t => t.id === taskId ? { ...t, actions: [...(t.actions || []), newAction] } : t)
+      }, `Added Action to ${taskId}`);
       setNewActionText(prev => ({...prev, [taskId]: ''}));
   };
 
   const toggleAction = (taskId: string, actionId: string) => {
-      setProject(prev => ({
-          ...prev,
-          tasks: prev.tasks.map(t => {
+      onProjectChange({
+          ...project,
+          tasks: project.tasks.map(t => {
               if (t.id !== taskId) return t;
               return {
                   ...t,
                   actions: t.actions.map(a => a.id === actionId ? { ...a, isCompleted: !a.isCompleted } : a)
               };
           })
-      }));
+      }, `Toggled Action on ${taskId}`);
   };
 
   const deleteAction = (taskId: string, actionId: string) => {
-      setProject(prev => ({
-          ...prev,
-          tasks: prev.tasks.map(t => {
+      onProjectChange({
+          ...project,
+          tasks: project.tasks.map(t => {
               if (t.id !== taskId) return t;
               return {
                   ...t,
                   actions: t.actions.filter(a => a.id !== actionId)
               };
           })
-      }));
+      }, `Deleted Action on ${taskId}`);
+  };
+
+  // --- Deliverables Logic ---
+
+  const addDeliverable = (taskId: string) => {
+      const name = newDeliverableName[taskId];
+      if (!name?.trim()) return;
+
+      const newDel: Deliverable = {
+          id: `d${Date.now()}`,
+          name: name
+      };
+
+      onProjectChange({
+          ...project,
+          tasks: project.tasks.map(t => t.id === taskId ? { ...t, deliverables: [...(t.deliverables || []), newDel] } : t)
+      }, `Added Deliverable to ${taskId}`);
+      setNewDeliverableName(prev => ({...prev, [taskId]: ''}));
+  };
+
+  const updateDeliverable = (taskId: string, delId: string, url: string) => {
+      onProjectChange({
+          ...project,
+          tasks: project.tasks.map(t => {
+              if (t.id !== taskId) return t;
+              return {
+                  ...t,
+                  deliverables: t.deliverables.map(d => d.id === delId ? { ...d, url } : d)
+              };
+          })
+      }, `Updated Deliverable Link ${taskId}`);
+  };
+
+  const deleteDeliverable = (taskId: string, delId: string) => {
+      onProjectChange({
+          ...project,
+          tasks: project.tasks.map(t => {
+              if (t.id !== taskId) return t;
+              return {
+                  ...t,
+                  deliverables: t.deliverables.filter(d => d.id !== delId)
+              };
+          })
+      }, `Deleted Deliverable on ${taskId}`);
   };
 
   const handleUpdateBudget = () => {
@@ -140,11 +190,11 @@ const Editor: React.FC<EditorProps> = ({ project, setProject }) => {
           reason: budgetReason
       };
 
-      setProject(prev => ({
-          ...prev,
+      onProjectChange({
+          ...project,
           budget: amount,
-          budgetHistory: [entry, ...(prev.budgetHistory || [])]
-      }));
+          budgetHistory: [entry, ...(project.budgetHistory || [])]
+      }, `Updated Budget to $${amount}`);
 
       setNewBudgetAmount('');
       setBudgetReason('');
@@ -174,10 +224,10 @@ const Editor: React.FC<EditorProps> = ({ project, setProject }) => {
                     <input 
                       className="font-bold bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 outline-none w-full mr-2"
                       value={task.name}
-                      onChange={(e) => updateTask(task.id, { name: e.target.value })}
+                      onChange={(e) => updateTask(task.id, { name: e.target.value }, 'Name')}
                     />
                     <button 
-                        onClick={() => setProject(p => ({ ...p, tasks: p.tasks.filter(t => t.id !== task.id) }))}
+                        onClick={() => removeTask(task.id)}
                         className="text-red-400 hover:text-red-600 text-xs whitespace-nowrap">
                         Remove
                     </button>
@@ -190,17 +240,17 @@ const Editor: React.FC<EditorProps> = ({ project, setProject }) => {
                             type="number" min="1"
                             className="w-full mt-1 p-1 text-sm border rounded"
                             value={task.duration}
-                            onChange={(e) => updateTask(task.id, { duration: parseInt(e.target.value) || 1 })}
+                            onChange={(e) => updateTask(task.id, { duration: parseInt(e.target.value) || 1 }, 'Duration')}
                         />
                     </div>
                     <div>
-                        <label className="block text-xs text-slate-500">Fixed Node Cost ($)</label>
+                        <label className="block text-xs text-slate-500">Fixed Cost ($)</label>
                         <input 
                             type="number" min="0"
                             className="w-full mt-1 p-1 text-sm border rounded"
                             placeholder="e.g. 500"
                             value={task.fixedCost}
-                            onChange={(e) => updateTask(task.id, { fixedCost: parseFloat(e.target.value) || 0 })}
+                            onChange={(e) => updateTask(task.id, { fixedCost: parseFloat(e.target.value) || 0 }, 'Cost')}
                         />
                     </div>
                     <div className="col-span-2">
@@ -210,10 +260,59 @@ const Editor: React.FC<EditorProps> = ({ project, setProject }) => {
                             placeholder="e.g. t1, t2"
                             className="w-full mt-1 p-1 text-sm border rounded"
                             value={task.predecessors.join(', ')}
-                            onChange={(e) => updateTask(task.id, { predecessors: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                            onChange={(e) => updateTask(task.id, { predecessors: e.target.value.split(',').map(s => s.trim()).filter(Boolean) }, 'Predecessors')}
                         />
-                         <div className="text-[10px] text-slate-400 mt-1">ID: {task.id}</div>
                     </div>
+                    
+                    {/* Manual End Date Override */}
+                     <div className="col-span-2">
+                        <label className="block text-xs text-slate-500">Manual Actual Completion (Optional)</label>
+                        <input 
+                            type="date"
+                            className="w-full mt-1 p-1 text-sm border rounded bg-white"
+                            value={task.actualEndDate || ''}
+                            onChange={(e) => updateTask(task.id, { actualEndDate: e.target.value }, 'Actual End Date')}
+                        />
+                        <p className="text-[9px] text-slate-400 mt-0.5">Overrides deadline calculation.</p>
+                    </div>
+                  </div>
+
+                  {/* Deliverables Section */}
+                  <div className="mb-4 bg-white p-2 rounded border border-indigo-100 ring-1 ring-indigo-50">
+                      <label className="block text-xs text-indigo-800 font-bold mb-2 uppercase flex justify-between items-center">
+                          Deliverables & Links
+                          <span className="text-[9px] text-slate-400 normal-case font-normal">(Task complete when all links added)</span>
+                      </label>
+                      <div className="space-y-2 mb-2">
+                          {(task.deliverables || []).map(del => (
+                             <div key={del.id} className="flex flex-col gap-1 border-b border-slate-50 pb-2">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs font-medium text-slate-700">{del.name}</span>
+                                    <button onClick={() => deleteDeliverable(task.id, del.id)} className="text-slate-300 hover:text-red-500">×</button>
+                                </div>
+                                <input 
+                                    className={`w-full text-xs p-1 border rounded ${del.url ? 'bg-green-50 border-green-200 text-green-700' : 'bg-slate-50 border-slate-200'}`}
+                                    placeholder="Paste deliverable URL here to complete..."
+                                    value={del.url || ''}
+                                    onChange={(e) => updateDeliverable(task.id, del.id, e.target.value)}
+                                />
+                             </div> 
+                          ))}
+                      </div>
+                      <div className="flex gap-2">
+                          <input 
+                            className="flex-1 text-xs border border-slate-200 rounded px-2 py-1"
+                            placeholder="New deliverable name..."
+                            value={newDeliverableName[task.id] || ''}
+                            onChange={(e) => setNewDeliverableName(prev => ({...prev, [task.id]: e.target.value}))}
+                            onKeyDown={(e) => e.key === 'Enter' && addDeliverable(task.id)}
+                          />
+                          <button 
+                            onClick={() => addDeliverable(task.id)}
+                            className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded hover:bg-indigo-100">
+                            Add
+                          </button>
+                      </div>
                   </div>
 
                   {/* Actions & Notes Section */}
@@ -226,7 +325,7 @@ const Editor: React.FC<EditorProps> = ({ project, setProject }) => {
                           placeholder="Add meeting notes, details, or ideas..."
                           rows={2}
                           value={task.notes || ''}
-                          onChange={(e) => updateTask(task.id, { notes: e.target.value })}
+                          onChange={(e) => updateTask(task.id, { notes: e.target.value }, 'Notes')}
                       />
 
                       {/* Actions List */}
@@ -407,10 +506,10 @@ const Editor: React.FC<EditorProps> = ({ project, setProject }) => {
                     <div className="flex justify-between items-center mb-2">
                         <label className="block text-sm font-medium text-slate-700">Resource Rates</label>
                         <button 
-                            onClick={() => setProject(p => ({
-                                ...p, 
-                                resources: [...p.resources, { id: `res${Date.now()}`, name: 'New Resource', hourlyRate: 50 }]
-                            }))}
+                            onClick={() => onProjectChange({
+                                ...project, 
+                                resources: [...project.resources, { id: `res${Date.now()}`, name: 'New Resource', hourlyRate: 50 }]
+                            }, "Added Resource")}
                             className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded hover:bg-indigo-100">
                             + Add Resource
                         </button>
@@ -420,10 +519,10 @@ const Editor: React.FC<EditorProps> = ({ project, setProject }) => {
                             <input 
                                 className="flex-1 p-2 border rounded text-sm"
                                 value={res.name}
-                                onChange={(e) => setProject(p => ({
-                                    ...p,
-                                    resources: p.resources.map(r => r.id === res.id ? { ...r, name: e.target.value } : r)
-                                }))}
+                                onChange={(e) => onProjectChange({
+                                    ...project,
+                                    resources: project.resources.map(r => r.id === res.id ? { ...r, name: e.target.value } : r)
+                                }, "Renamed Resource")}
                             />
                             <div className="relative w-24">
                                 <span className="absolute left-2 top-2 text-slate-400 text-xs">$</span>
@@ -432,15 +531,15 @@ const Editor: React.FC<EditorProps> = ({ project, setProject }) => {
                                     type="number"
                                     title="Hourly Rate"
                                     value={res.hourlyRate}
-                                    onChange={(e) => setProject(p => ({
-                                        ...p,
-                                        resources: p.resources.map(r => r.id === res.id ? { ...r, hourlyRate: parseInt(e.target.value) || 0 } : r)
-                                    }))}
+                                    onChange={(e) => onProjectChange({
+                                        ...project,
+                                        resources: project.resources.map(r => r.id === res.id ? { ...r, hourlyRate: parseInt(e.target.value) || 0 } : r)
+                                    }, "Updated Resource Rate")}
                                 />
                                 <span className="absolute right-2 top-2 text-slate-400 text-xs">/hr</span>
                             </div>
                             <button 
-                                onClick={() => setProject(p => ({ ...p, resources: p.resources.filter(r => r.id !== res.id) }))}
+                                onClick={() => onProjectChange({ ...project, resources: project.resources.filter(r => r.id !== res.id) }, "Removed Resource")}
                                 className="text-slate-400 hover:text-red-500">
                                 ×
                             </button>

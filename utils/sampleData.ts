@@ -96,6 +96,10 @@ export const SAMPLE_PROJECT: Project = {
       fixedCost: 500,
       earlyStart: 0, earlyFinish: 0, lateStart: 0, lateFinish: 0, slack: 0, isCritical: false,
       actions: [{ id: 'a1', description: 'Sign off scope with City Council', isCompleted: true }],
+      deliverables: [
+          { id: 'd1', name: 'Requirements Doc', url: 'https://docs.google.com/requirements' },
+          { id: 'd2', name: 'Stakeholder Sign-off', url: 'https://docs.google.com/signoff' }
+      ],
       notes: "Focus on downtown intersections first. Compliance with ISO 27001 is mandatory."
     },
     {
@@ -110,6 +114,9 @@ export const SAMPLE_PROJECT: Project = {
       fixedCost: 45000,
       earlyStart: 0, earlyFinish: 0, lateStart: 0, lateFinish: 0, slack: 0, isCritical: false,
       actions: [{ id: 'a2', description: 'Pay invoice for initial sensors', isCompleted: false }],
+      deliverables: [
+          { id: 'd3', name: 'Order Confirmation' } // Not delivered yet (no URL)
+      ],
       notes: "Vendor: TechGlobal Inc. Invoice #TG-2023-99."
     },
     {
@@ -122,6 +129,9 @@ export const SAMPLE_PROJECT: Project = {
       fixedCost: 0,
       earlyStart: 0, earlyFinish: 0, lateStart: 0, lateFinish: 0, slack: 0, isCritical: false,
       actions: [],
+      deliverables: [
+          { id: 'd4', name: 'Architecture Diagram', url: 'https://figma.com/arch' }
+      ],
       notes: "Define message broker schema (MQTT vs Kafka)."
     },
     {
@@ -136,6 +146,9 @@ export const SAMPLE_PROJECT: Project = {
       fixedCost: 0,
       earlyStart: 0, earlyFinish: 0, lateStart: 0, lateFinish: 0, slack: 0, isCritical: false,
       actions: [{ id: 'a3', description: 'Setup cross-compilation environment', isCompleted: true }],
+      deliverables: [
+          { id: 'd5', name: 'Firmware v0.1 Binary' }
+      ],
       notes: "Targeting ARM Cortex-M4 boards."
     },
     {
@@ -153,6 +166,7 @@ export const SAMPLE_PROJECT: Project = {
           { id: 'a4', description: 'Clean traffic dataset', isCompleted: false },
           { id: 'a5', description: 'Run baseline benchmarks', isCompleted: false }
       ],
+      deliverables: [],
       notes: "Using PyTorch. Need 4x A100 GPUs for 2 weeks."
     },
     {
@@ -165,6 +179,7 @@ export const SAMPLE_PROJECT: Project = {
       fixedCost: 0,
       earlyStart: 0, earlyFinish: 0, lateStart: 0, lateFinish: 0, slack: 0, isCritical: false,
       actions: [],
+      deliverables: [],
       notes: "React + D3 for visualizations. Must support dark mode for operations center."
     },
     {
@@ -182,6 +197,7 @@ export const SAMPLE_PROJECT: Project = {
       fixedCost: 0,
       earlyStart: 0, earlyFinish: 0, lateStart: 0, lateFinish: 0, slack: 0, isCritical: false,
       actions: [{ id: 'a6', description: 'Define API contracts', isCompleted: true }],
+      deliverables: [],
       notes: "Integration environment on local server before pilot."
     },
     {
@@ -199,6 +215,7 @@ export const SAMPLE_PROJECT: Project = {
           { id: 'a7', description: 'Safety briefing for crew', isCompleted: false },
           { id: 'a8', description: 'Notify traffic department of closure', isCompleted: false }
       ],
+      deliverables: [],
       notes: "Intersection: 5th & Main. Requires bucket truck."
     },
     {
@@ -214,6 +231,7 @@ export const SAMPLE_PROJECT: Project = {
       fixedCost: 0,
       earlyStart: 0, earlyFinish: 0, lateStart: 0, lateFinish: 0, slack: 0, isCritical: false,
       actions: [],
+      deliverables: [],
       notes: "Optimization needed for real-time latency (<100ms)."
     },
     {
@@ -226,6 +244,7 @@ export const SAMPLE_PROJECT: Project = {
       fixedCost: 0,
       earlyStart: 0, earlyFinish: 0, lateStart: 0, lateFinish: 0, slack: 0, isCritical: false,
       actions: [{ id: 'a9', description: 'Prepare final report', isCompleted: false }],
+      deliverables: [],
       notes: "Sign-off with City Mayor."
     }
   ]
