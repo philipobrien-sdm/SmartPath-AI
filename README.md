@@ -9,12 +9,6 @@ SmartPath AI combines traditional methodologies with Generative AI to help you p
 
 ## 📸 Interface Gallery
 
-### App video: 
-
-https://github.com/user-attachments/assets/ef26f05a-113d-4e78-a685-f441b87619ee
-
-
-
 ### 1. Interactive Dual-View Visualization
 Switch instantly between **Gantt Charts** for timeline planning and **PERT Charts** (Network Diagram) for dependency analysis. Both views support drag-to-pan, zoom, and interactive task editing.
 
