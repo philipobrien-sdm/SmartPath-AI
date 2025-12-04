@@ -2,10 +2,9 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Project, Task, Resource } from '../types';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const model = "gemini-2.5-flash";
 
 export const generateProjectPlan = async (description: string, existingResources: Resource[]): Promise<Partial<Project>> => {
-  const model = "gemini-2.5-flash";
-  
   const resourceNames = existingResources.map(r => r.name).join(", ");
 
   const prompt = `
@@ -91,7 +90,9 @@ export const generateProjectPlan = async (description: string, existingResources
       fixedCost: t.fixedCost || 0,
       risks: t.risks.map((r: any, idx: number) => ({
         id: `${t.id}-r${idx}`,
-        ...r
+        ...r,
+        owner: '',
+        status: 'OPEN'
       })),
       resources: t.resources.map((r: any) => {
         // Simple fuzzy match or create placeholder
@@ -101,12 +102,28 @@ export const generateProjectPlan = async (description: string, existingResources
           percentage: r.percentage
         };
       }).filter((r: any) => r.resourceId !== 'unknown'),
+      // Defaults for new fields
+      actions: [],
+      notes: '',
       // Defaults for calc fields
       earlyStart: 0, earlyFinish: 0, lateStart: 0, lateFinish: 0, slack: 0, isCritical: false
     }));
 
     return {
-      tasks: mappedTasks
+      tasks: mappedTasks,
+      meetings: [],
+      charter: {
+        overview: description,
+        sponsor: '',
+        manager: '',
+        goals: [],
+        scopeIn: [],
+        scopeOut: [],
+        stakeholders: [],
+        successCriteria: [],
+        assumptions: [],
+        constraints: []
+      }
     };
 
   } catch (error) {
@@ -116,46 +133,96 @@ export const generateProjectPlan = async (description: string, existingResources
 };
 
 export const analyzeProjectRisks = async (project: Project): Promise<string> => {
-  const model = "gemini-2.5-flash";
+  return getAIAdvice('RISK', JSON.stringify({
+    risks: project.tasks.flatMap(t => t.risks),
+    tasks: project.tasks.map(t => ({name: t.name, isCritical: t.isCritical}))
+  }));
+};
 
-  // Create a concise summary for the model
-  const summary = JSON.stringify({
-    projectBudget: project.budget,
-    totalDuration: Math.max(...project.tasks.map(t => t.earlyFinish), 0),
-    resources: project.resources.map(r => ({ id: r.id, name: r.name, hourlyRate: r.hourlyRate })),
-    tasks: project.tasks.map(t => ({
-      name: t.name,
-      duration: t.duration,
-      isCritical: t.isCritical,
-      resources: t.resources,
-      risks: t.risks,
-      cost: t.fixedCost
-    }))
-  });
+export const getAIAdvice = async (
+  category: 'OPTIMIZATION' | 'RISK' | 'MEETING' | 'CHARTER' | 'GENERAL',
+  dataContext: string
+): Promise<string> => {
+  
+  let systemInstruction = "You are a Senior Project Manager and AI Consultant.";
+  let prompt = "";
 
-  const prompt = `
-    Act as a Senior Project Manager and Risk Analyst.
-    Analyze the following project data and provide a strategic assessment.
-    
-    Project Data: ${summary}
-    
-    Please provide:
-    1. **High Risk Areas**: Identify tasks with high combined probability/impact or tight critical path dependencies.
-    2. **Resource Bottlenecks**: Identify resources that appear over-utilized (over 100%) or critical to too many tasks.
-    3. **Mitigation Strategies**: Suggest 3 concrete actions to reduce risk or cost.
-    4. **Budget Check**: A quick comment on whether the budget seems sufficient given the resources and duration (heuristic check).
-    
-    Format the response in clean, readable Markdown. Use bullet points and bold text for emphasis. Keep it concise.
-  `;
+  if (category === 'OPTIMIZATION') {
+      systemInstruction += " You specialize in scheduling (PERT/Gantt), Critical Path Method (CPM), and resource optimization.";
+      prompt = `
+        Analyze the following project schedule data:
+        ${dataContext}
+        
+        Provide advice on:
+        1. **Critical Path Optimization**: How to shorten the project duration?
+        2. **Resource Balancing**: Are there potential bottlenecks or underutilized resources?
+        3. **Logic Check**: Are the dependencies logical?
+        
+        Return the advice in clear Markdown format.
+      `;
+  } else if (category === 'RISK') {
+      systemInstruction += " You specialize in risk management (PMBOK/Prince2).";
+      prompt = `
+        Analyze the following project risks:
+        ${dataContext}
+        
+        Provide:
+        1. **Risk Assessment**: Identify the most critical risks (Probability x Impact).
+        2. **Mitigation Strategies**: Suggest concrete steps to mitigate top risks.
+        3. **Blind Spots**: Are there common risks missing for this type of project?
+        
+        Return the advice in clear Markdown format.
+      `;
+  } else if (category === 'MEETING') {
+      systemInstruction += " You specialize in meeting efficiency and extracting action items.";
+      prompt = `
+        Analyze the following meeting logs:
+        ${dataContext}
+        
+        Provide:
+        1. **Key Insights**: Summarize the main decisions and blockers.
+        2. **What-If Analysis**: Based on the notes, what happens if the decisions are delayed?
+        3. **Action Gap**: Are there implied actions in the notes that aren't tracked?
+        
+        Return the advice in clear Markdown format.
+      `;
+  } else if (category === 'CHARTER') {
+      systemInstruction += " You specialize in project initiation and charter definition.";
+      prompt = `
+        Review the following Project Charter:
+        ${dataContext}
+        
+        Provide:
+        1. **Clarity Check**: Are the goals and scope clearly defined?
+        2. **Missing Elements**: Is there ambiguity in constraints or assumptions?
+        3. **Strategic Alignment**: Does the scope match the goals?
+        
+        Return the advice in clear Markdown format.
+      `;
+  } else {
+      prompt = `Analyze the following data and provide helpful advice: ${dataContext}`;
+  }
 
   try {
     const response = await ai.models.generateContent({
       model,
-      contents: prompt
+      contents: prompt,
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+             advice: { type: Type.STRING, description: "Markdown formatted advice" }
+          }
+        }
+      }
     });
-    return response.text || "Could not generate analysis.";
+    
+    const json = JSON.parse(response.text || "{}");
+    return json.advice || "No advice generated.";
   } catch (error) {
-    console.error("Error analyzing risks:", error);
-    return "Error generating analysis. Please check your API key and connection.";
+    console.error(`Error in getAIAdvice (${category}):`, error);
+    return "Error contacting AI service. Please check your connection.";
   }
 };

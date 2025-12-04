@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Project, Task, OverlayMode, Resource } from '../types';
+import { Project, Task, OverlayMode, ThemeConfig } from '../types';
 import { getRiskScore, calculateTaskCost, getDailyResourceUsage } from '../utils/scheduler';
 import * as d3 from 'd3';
 
@@ -7,9 +7,10 @@ interface GanttChartProps {
   project: Project;
   overlayMode: OverlayMode;
   selectedResourceId?: string;
+  theme: ThemeConfig;
 }
 
-const GanttChart: React.FC<GanttChartProps> = ({ project, overlayMode, selectedResourceId }) => {
+const GanttChart: React.FC<GanttChartProps> = ({ project, overlayMode, selectedResourceId, theme }) => {
   const chartHeight = Math.max(project.tasks.length * 40 + 50, 400);
   const rowHeight = 40;
   const headerHeight = 40;
@@ -23,19 +24,18 @@ const GanttChart: React.FC<GanttChartProps> = ({ project, overlayMode, selectedR
   const getTaskColor = (task: Task) => {
     if (overlayMode === 'RISK') {
       const score = getRiskScore(task);
-      return score >= 15 ? 'bg-red-500' : score >= 5 ? 'bg-orange-400' : 'bg-green-500';
+      return score >= 15 ? theme.riskHigh : score >= 5 ? theme.riskMedium : theme.riskLow;
     }
     if (overlayMode === 'COST') {
        const cost = calculateTaskCost(task, project.resources);
        const ratio = cost / (project.budget || 1);
-       // Simple heuristic threshold
-       return ratio > 0.1 ? 'bg-red-500' : 'bg-green-500'; 
+       return ratio > 0.1 ? theme.riskHigh : theme.riskLow; 
     }
     if (overlayMode === 'RESOURCE' && selectedResourceId) {
        const alloc = task.resources.find(r => r.resourceId === selectedResourceId);
-       return alloc ? (alloc.percentage > 100 ? 'bg-red-600' : 'bg-blue-500') : 'bg-slate-200';
+       return alloc ? (alloc.percentage > 100 ? theme.resourceOverload : theme.resourceNormal) : '#e2e8f0'; // slate-200
     }
-    return task.isCritical ? 'bg-rose-500' : 'bg-indigo-500';
+    return task.isCritical ? theme.taskCritical : theme.taskDefault;
   };
 
   // Resource Heatmap Data
@@ -92,10 +92,11 @@ const GanttChart: React.FC<GanttChartProps> = ({ project, overlayMode, selectedR
               <div className="flex-1 relative h-full">
                 {/* Task Bar */}
                 <div
-                  className={`absolute h-6 top-2 rounded-md shadow-sm transition-all duration-300 text-xs flex items-center justify-center text-white cursor-pointer ${getTaskColor(task)}`}
+                  className={`absolute h-6 top-2 rounded-md shadow-sm transition-all duration-300 text-xs flex items-center justify-center text-white cursor-pointer`}
                   style={{
                     left: task.earlyStart * dayWidth,
                     width: task.duration * dayWidth,
+                    backgroundColor: getTaskColor(task)
                   }}
                   title={`Start: ${task.earlyStart}, End: ${task.earlyFinish}, Slack: ${task.slack}`}
                 >
@@ -126,10 +127,10 @@ const GanttChart: React.FC<GanttChartProps> = ({ project, overlayMode, selectedR
                  <div className="ml-48 relative h-full">
                     {heatmapData.map((d) => {
                         // Color scale for usage
-                        let color = 'bg-green-400';
-                        if (d.usage > 100) color = 'bg-red-500';
-                        else if (d.usage > 80) color = 'bg-orange-400';
-                        else if (d.usage === 0) color = 'bg-transparent';
+                        let color = theme.riskLow; // using riskLow as 'good'
+                        if (d.usage > 100) color = theme.resourceOverload;
+                        else if (d.usage > 80) color = theme.riskMedium;
+                        else if (d.usage === 0) color = 'transparent';
                         
                         // Height based on usage (capped at 100% height for 150% usage to avoid overflow)
                         const barHeight = Math.min((d.usage / 150) * 100, 100);
@@ -138,8 +139,8 @@ const GanttChart: React.FC<GanttChartProps> = ({ project, overlayMode, selectedR
                             <div key={d.day} className="absolute bottom-0 flex flex-col justify-end items-center group"
                                 style={{ left: d.day * dayWidth, width: dayWidth, height: '100%' }}>
                                 {d.usage > 0 && (
-                                    <div className={`w-full ${color} opacity-80 hover:opacity-100 transition-all`} 
-                                        style={{ height: `${barHeight}%` }}>
+                                    <div className={`w-full opacity-80 hover:opacity-100 transition-all`} 
+                                        style={{ height: `${barHeight}%`, backgroundColor: color }}>
                                     </div>
                                 )}
                                 <div className="hidden group-hover:block absolute bottom-full mb-1 bg-black text-white text-xs p-1 rounded">

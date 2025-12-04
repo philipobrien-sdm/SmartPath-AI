@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Project, Task, Resource, Risk } from '../types';
+import { Project, Task, Resource, Risk, ActionItem, BudgetEntry } from '../types';
 
 interface EditorProps {
   project: Project;
@@ -8,7 +8,12 @@ interface EditorProps {
 
 const Editor: React.FC<EditorProps> = ({ project, setProject }) => {
   const [activeTab, setActiveTab] = useState<'TASKS' | 'RESOURCES'>('TASKS');
+  const [newActionText, setNewActionText] = useState<{[key: string]: string}>({});
   
+  // Budget State
+  const [newBudgetAmount, setNewBudgetAmount] = useState<string>('');
+  const [budgetReason, setBudgetReason] = useState<string>('');
+
   const addTask = () => {
     const newTask: Task = {
       id: `t${Date.now()}`,
@@ -17,6 +22,8 @@ const Editor: React.FC<EditorProps> = ({ project, setProject }) => {
       predecessors: [],
       resources: [],
       risks: [],
+      actions: [],
+      notes: '',
       fixedCost: 0,
       earlyStart: 0, earlyFinish: 0, lateStart: 0, lateFinish: 0, slack: 0, isCritical: false
     };
@@ -53,7 +60,9 @@ const Editor: React.FC<EditorProps> = ({ project, setProject }) => {
           description: 'New Risk',
           probability: 3,
           impact: 3,
-          mitigation: ''
+          mitigation: '',
+          owner: '',
+          status: 'OPEN'
       };
       setProject(prev => ({
           ...prev,
@@ -72,6 +81,73 @@ const Editor: React.FC<EditorProps> = ({ project, setProject }) => {
             };
         })
     }));
+  };
+
+  const addAction = (taskId: string) => {
+      const text = newActionText[taskId];
+      if (!text?.trim()) return;
+
+      const newAction: ActionItem = {
+          id: `act${Date.now()}`,
+          description: text,
+          isCompleted: false
+      };
+
+      setProject(prev => ({
+          ...prev,
+          tasks: prev.tasks.map(t => t.id === taskId ? { ...t, actions: [...(t.actions || []), newAction] } : t)
+      }));
+      setNewActionText(prev => ({...prev, [taskId]: ''}));
+  };
+
+  const toggleAction = (taskId: string, actionId: string) => {
+      setProject(prev => ({
+          ...prev,
+          tasks: prev.tasks.map(t => {
+              if (t.id !== taskId) return t;
+              return {
+                  ...t,
+                  actions: t.actions.map(a => a.id === actionId ? { ...a, isCompleted: !a.isCompleted } : a)
+              };
+          })
+      }));
+  };
+
+  const deleteAction = (taskId: string, actionId: string) => {
+      setProject(prev => ({
+          ...prev,
+          tasks: prev.tasks.map(t => {
+              if (t.id !== taskId) return t;
+              return {
+                  ...t,
+                  actions: t.actions.filter(a => a.id !== actionId)
+              };
+          })
+      }));
+  };
+
+  const handleUpdateBudget = () => {
+      const amount = parseFloat(newBudgetAmount);
+      if (isNaN(amount) || !budgetReason.trim()) {
+          alert("Please enter a valid amount and a reason for the budget change.");
+          return;
+      }
+
+      const entry: BudgetEntry = {
+          id: `b${Date.now()}`,
+          date: new Date().toISOString().split('T')[0],
+          amount: amount,
+          reason: budgetReason
+      };
+
+      setProject(prev => ({
+          ...prev,
+          budget: amount,
+          budgetHistory: [entry, ...(prev.budgetHistory || [])]
+      }));
+
+      setNewBudgetAmount('');
+      setBudgetReason('');
   };
 
   return (
@@ -96,13 +172,13 @@ const Editor: React.FC<EditorProps> = ({ project, setProject }) => {
                 <div key={task.id} className="border border-slate-200 rounded-lg p-4 bg-slate-50">
                   <div className="flex justify-between mb-2">
                     <input 
-                      className="font-bold bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 outline-none"
+                      className="font-bold bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 outline-none w-full mr-2"
                       value={task.name}
                       onChange={(e) => updateTask(task.id, { name: e.target.value })}
                     />
                     <button 
                         onClick={() => setProject(p => ({ ...p, tasks: p.tasks.filter(t => t.id !== task.id) }))}
-                        className="text-red-400 hover:text-red-600 text-xs">
+                        className="text-red-400 hover:text-red-600 text-xs whitespace-nowrap">
                         Remove
                     </button>
                   </div>
@@ -118,6 +194,16 @@ const Editor: React.FC<EditorProps> = ({ project, setProject }) => {
                         />
                     </div>
                     <div>
+                        <label className="block text-xs text-slate-500">Fixed Node Cost ($)</label>
+                        <input 
+                            type="number" min="0"
+                            className="w-full mt-1 p-1 text-sm border rounded"
+                            placeholder="e.g. 500"
+                            value={task.fixedCost}
+                            onChange={(e) => updateTask(task.id, { fixedCost: parseFloat(e.target.value) || 0 })}
+                        />
+                    </div>
+                    <div className="col-span-2">
                         <label className="block text-xs text-slate-500">Predecessors (IDs)</label>
                         <input 
                             type="text"
@@ -130,6 +216,54 @@ const Editor: React.FC<EditorProps> = ({ project, setProject }) => {
                     </div>
                   </div>
 
+                  {/* Actions & Notes Section */}
+                  <div className="mb-4 bg-white p-2 rounded border border-slate-100">
+                      <label className="block text-xs text-slate-500 font-bold mb-2 uppercase">Actions & Notes</label>
+                      
+                      {/* Notes */}
+                      <textarea
+                          className="w-full text-xs p-2 border border-slate-200 rounded mb-3 focus:outline-none focus:border-indigo-400"
+                          placeholder="Add meeting notes, details, or ideas..."
+                          rows={2}
+                          value={task.notes || ''}
+                          onChange={(e) => updateTask(task.id, { notes: e.target.value })}
+                      />
+
+                      {/* Actions List */}
+                      <div className="space-y-1 mb-2">
+                          {(task.actions || []).map(action => (
+                              <div key={action.id} className="flex items-center gap-2 group">
+                                  <input 
+                                    type="checkbox" 
+                                    checked={action.isCompleted} 
+                                    onChange={() => toggleAction(task.id, action.id)}
+                                    className="rounded text-indigo-600 focus:ring-indigo-500 h-3 w-3"
+                                  />
+                                  <span className={`text-xs flex-1 truncate ${action.isCompleted ? 'line-through text-slate-400' : 'text-slate-700'}`}>
+                                      {action.description}
+                                  </span>
+                                  <button onClick={() => deleteAction(task.id, action.id)} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500">×</button>
+                              </div>
+                          ))}
+                      </div>
+
+                      {/* Add Action */}
+                      <div className="flex gap-2">
+                          <input 
+                            className="flex-1 text-xs border border-slate-200 rounded px-2 py-1"
+                            placeholder="New action item..."
+                            value={newActionText[task.id] || ''}
+                            onChange={(e) => setNewActionText(prev => ({...prev, [task.id]: e.target.value}))}
+                            onKeyDown={(e) => e.key === 'Enter' && addAction(task.id)}
+                          />
+                          <button 
+                            onClick={() => addAction(task.id)}
+                            className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded hover:bg-indigo-100">
+                            Add
+                          </button>
+                      </div>
+                  </div>
+
                   {/* Resource Alloc */}
                   <div className="mb-4">
                       <label className="block text-xs text-slate-500 font-bold mb-1">Resource Allocation</label>
@@ -138,7 +272,7 @@ const Editor: React.FC<EditorProps> = ({ project, setProject }) => {
                               const alloc = task.resources.find(r => r.resourceId === res.id);
                               return (
                                   <div key={res.id} className="flex items-center justify-between text-sm">
-                                      <span className="text-slate-600">{res.name}</span>
+                                      <span className="text-slate-600">{res.name} <span className="text-xs text-slate-400">(${res.hourlyRate}/hr)</span></span>
                                       <input 
                                         type="number" placeholder="%"
                                         className="w-20 p-1 border rounded text-right"
@@ -180,12 +314,28 @@ const Editor: React.FC<EditorProps> = ({ project, setProject }) => {
                                   >
                                       {[1,2,3,4,5].map(n => <option key={n} value={n}>Imp: {n}</option>)}
                                   </select>
+                                   <select 
+                                    className="border rounded p-0.5 max-w-[80px]"
+                                    value={risk.status || 'OPEN'}
+                                    onChange={(e) => updateRisk(task.id, risk.id, { status: e.target.value as any })}
+                                  >
+                                      <option value="OPEN">Open</option>
+                                      <option value="WATCHING">Watch</option>
+                                      <option value="MITIGATED">Mitig</option>
+                                      <option value="CLOSED">Closed</option>
+                                  </select>
                               </div>
                               <input 
-                                className="w-full text-slate-500 italic"
+                                className="w-full text-slate-500 italic mb-1"
                                 placeholder="Mitigation..."
                                 value={risk.mitigation}
                                 onChange={(e) => updateRisk(task.id, risk.id, { mitigation: e.target.value })}
+                              />
+                              <input 
+                                className="w-full text-slate-400"
+                                placeholder="Owner (e.g. Alice)"
+                                value={risk.owner || ''}
+                                onChange={(e) => updateRisk(task.id, risk.id, { owner: e.target.value })}
                               />
                           </div>
                       ))}
@@ -203,19 +353,59 @@ const Editor: React.FC<EditorProps> = ({ project, setProject }) => {
 
         {activeTab === 'RESOURCES' && (
             <div className="space-y-6">
-                <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Total Budget ($)</label>
-                    <input 
-                        type="number"
-                        className="w-full p-2 border rounded-lg"
-                        value={project.budget}
-                        onChange={(e) => setProject(prev => ({ ...prev, budget: parseInt(e.target.value) || 0 }))}
-                    />
+                
+                {/* Budget Management */}
+                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Project Budget Management</label>
+                    
+                    <div className="text-2xl font-bold text-indigo-600 mb-4">${project.budget.toLocaleString()}</div>
+                    
+                    <div className="space-y-2 mb-4">
+                        <input 
+                            type="number"
+                            placeholder="New Budget Amount"
+                            className="w-full p-2 border rounded text-sm"
+                            value={newBudgetAmount}
+                            onChange={(e) => setNewBudgetAmount(e.target.value)}
+                        />
+                        <textarea 
+                            placeholder="Reason for change (Required)"
+                            className="w-full p-2 border rounded text-sm resize-none"
+                            rows={2}
+                            value={budgetReason}
+                            onChange={(e) => setBudgetReason(e.target.value)}
+                        />
+                        <button 
+                            onClick={handleUpdateBudget}
+                            disabled={!newBudgetAmount || !budgetReason}
+                            className="w-full bg-indigo-600 text-white py-2 rounded text-sm hover:bg-indigo-700 disabled:opacity-50 transition-colors">
+                            Update Budget
+                        </button>
+                    </div>
+
+                    {/* History */}
+                    {project.budgetHistory && project.budgetHistory.length > 0 && (
+                        <div>
+                            <div className="text-xs font-bold text-slate-500 uppercase mb-2">Change Log</div>
+                            <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                                {project.budgetHistory.map(entry => (
+                                    <div key={entry.id} className="bg-white p-2 rounded border border-slate-100 text-xs">
+                                        <div className="flex justify-between font-bold text-slate-700">
+                                            <span>${entry.amount.toLocaleString()}</span>
+                                            <span className="text-slate-400">{entry.date}</span>
+                                        </div>
+                                        <div className="text-slate-500 mt-1">{entry.reason}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
                 
+                {/* Resource Management */}
                 <div>
                     <div className="flex justify-between items-center mb-2">
-                        <label className="block text-sm font-medium text-slate-700">Resources</label>
+                        <label className="block text-sm font-medium text-slate-700">Resource Rates</label>
                         <button 
                             onClick={() => setProject(p => ({
                                 ...p, 
@@ -240,6 +430,7 @@ const Editor: React.FC<EditorProps> = ({ project, setProject }) => {
                                 <input 
                                     className="w-full p-2 pl-4 border rounded text-sm"
                                     type="number"
+                                    title="Hourly Rate"
                                     value={res.hourlyRate}
                                     onChange={(e) => setProject(p => ({
                                         ...p,

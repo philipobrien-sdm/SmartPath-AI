@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import * as d3 from 'd3';
-import { Task, Project, OverlayMode, Resource } from '../types';
+import { Task, Project, OverlayMode, ThemeConfig } from '../types';
 import { calculateTaskCost, getRiskScore } from '../utils/scheduler';
 
 interface PERTChartProps {
@@ -8,6 +8,7 @@ interface PERTChartProps {
   overlayMode: OverlayMode;
   selectedResourceId?: string;
   onTaskClick: (taskId: string) => void;
+  theme: ThemeConfig;
 }
 
 const CARD_WIDTH = 240;
@@ -15,7 +16,15 @@ const CARD_HEIGHT = 160;
 const GAP_X = 100;
 const GAP_Y = 40;
 
-const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedResourceId, onTaskClick }) => {
+// Helper to add opacity to hex color
+const hexToRgba = (hex: string, alpha: number) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedResourceId, onTaskClick, theme }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [zoomTransform, setZoomTransform] = useState<d3.ZoomTransform>(d3.zoomIdentity);
 
@@ -131,27 +140,63 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
       return `M ${sx} ${sy} C ${midX} ${sy}, ${midX} ${ty}, ${tx} ${ty}`;
   };
 
-  const getNodeColorClass = (task: Task) => {
+  const getNodeStyles = (task: Task) => {
+      let borderColor = '#cbd5e1'; // slate-300
+      let bgColor = '#ffffff';
+
       if (overlayMode === 'RISK') {
           const score = getRiskScore(task);
-          // Use solid border styles for consistency
-          return score >= 15 ? 'border-2 border-red-500 bg-red-50' : score >= 5 ? 'border-2 border-orange-400 bg-orange-50' : 'border-2 border-green-500 bg-green-50';
+          if (score >= 15) { borderColor = theme.riskHigh; bgColor = hexToRgba(theme.riskHigh, 0.1); }
+          else if (score >= 5) { borderColor = theme.riskMedium; bgColor = hexToRgba(theme.riskMedium, 0.1); }
+          else { borderColor = theme.riskLow; bgColor = hexToRgba(theme.riskLow, 0.1); }
       }
-      if (overlayMode === 'COST') {
+      else if (overlayMode === 'COST') {
         const cost = calculateTaskCost(task, project.resources);
         const ratio = cost / (project.budget || 1);
-        return ratio > 0.1 ? 'border-2 border-red-500 bg-red-50' : ratio > 0.05 ? 'border-2 border-orange-400 bg-orange-50' : 'border-2 border-green-500 bg-green-50';
+        if (ratio > 0.1) { borderColor = theme.riskHigh; bgColor = hexToRgba(theme.riskHigh, 0.1); }
+        else if (ratio > 0.05) { borderColor = theme.riskMedium; bgColor = hexToRgba(theme.riskMedium, 0.1); }
+        else { borderColor = theme.riskLow; bgColor = hexToRgba(theme.riskLow, 0.1); }
       }
-      if (overlayMode === 'RESOURCE' && selectedResourceId) {
+      else if (overlayMode === 'RESOURCE' && selectedResourceId) {
           const alloc = task.resources.find(r => r.resourceId === selectedResourceId);
-          if (!alloc) return 'border border-slate-300 bg-slate-50 opacity-60';
-          return alloc.percentage > 100 ? 'border-2 border-red-600 bg-red-50' : 'border-2 border-blue-500 bg-blue-50';
+          if (!alloc) {
+              borderColor = '#cbd5e1'; 
+              bgColor = '#f8fafc';
+          } else {
+              if (alloc.percentage > 100) { borderColor = theme.resourceOverload; bgColor = hexToRgba(theme.resourceOverload, 0.1); }
+              else { borderColor = theme.resourceNormal; bgColor = hexToRgba(theme.resourceNormal, 0.1); }
+          }
       }
-      // Standard view: Highlight critical path
-      // Increased border width to 2px and darker slate for better export visibility
-      return task.isCritical 
-        ? 'border-2 border-red-600 shadow-[0_0_10px_rgba(220,38,38,0.3)] bg-white' 
-        : 'border-2 border-slate-400 hover:border-indigo-400 bg-white';
+      else {
+          // Standard view
+          if (task.isCritical) {
+              borderColor = theme.taskCritical;
+              bgColor = '#ffffff';
+          } else {
+              borderColor = theme.taskDefault; // Or use standard grey for default border if not colored by default
+              // Actually, default border is usually subtle slate, but let's use the theme taskDefault as border color
+              // If taskDefault is the primary brand color (indigo), we can use it on hover, but static might be slate.
+              // Let's stick to using theme.taskDefault for non-critical border to make it customizable.
+              // Or keep slate for non-critical? The user wants to "set colors", implying the primary colors.
+              // Let's use theme.taskDefault for non-critical nodes to honor the setting.
+              // But strictly speaking, standard nodes are usually white/grey. 
+              // Let's use a standard slate for default border, and taskDefault for headers/accents? 
+              // The request was "colors of the Gannt and PERT".
+              // In Gantt, taskDefault is the bar color.
+              // In PERT, let's make the border color theme.taskDefault for non-critical nodes, or slate if we want to distinguish.
+              // Let's use theme.taskDefault for consistency.
+              // Actually, previous implementation used slate-400 for non-critical.
+              // Let's use theme.taskDefault if provided, or fallback to slate.
+              // Let's make non-critical nodes use the `taskDefault` color for border.
+              borderColor = '#94a3b8'; // slate-400 as base
+          }
+      }
+
+      return {
+          border: `2px solid ${borderColor}`,
+          backgroundColor: bgColor,
+          boxShadow: task.isCritical && overlayMode === 'NONE' ? `0 0 10px ${hexToRgba(theme.taskCritical, 0.3)}` : 'none'
+      };
   };
 
   return (
@@ -167,10 +212,10 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
       >
         <defs>
             <marker id="arrow-head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8" />
+                <path d="M 0 0 L 10 5 L 0 10 z" fill={theme.linkDefault} />
             </marker>
             <marker id="arrow-head-critical" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="#dc2626" />
+                <path d="M 0 0 L 10 5 L 0 10 z" fill={theme.linkCritical} />
             </marker>
         </defs>
         <g id="pert-group" transform={zoomTransform.toString()}>
@@ -190,7 +235,7 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
                         key={i}
                         d={getLinkPath(link.source, link.target)}
                         fill="none"
-                        stroke={isCriticalLink ? "#dc2626" : "#cbd5e1"}
+                        stroke={isCriticalLink ? theme.linkCritical : theme.linkDefault}
                         strokeWidth={isCriticalLink ? "3" : "2"}
                         markerEnd={isCriticalLink ? "url(#arrow-head-critical)" : "url(#arrow-head)"}
                         className="transition-all duration-500"
@@ -203,6 +248,7 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
             {layout.nodes.map((node) => {
                 const cost = calculateTaskCost(node, project.resources);
                 const riskScore = getRiskScore(node);
+                const styles = getNodeStyles(node);
                 
                 return (
                     <foreignObject 
@@ -213,13 +259,14 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
                         height={CARD_HEIGHT}
                         className="overflow-visible"
                     >
-                        {/* Added explicit box-sizing and border-style to inline styles for export safety */}
+                        {/* Explicit styles for export */}
                         <div 
                             onClick={(e) => { e.stopPropagation(); onTaskClick(node.id); }}
-                            className={`w-full h-full rounded-lg shadow-sm transition-all duration-200 flex flex-col p-3 hover:shadow-md ${getNodeColorClass(node)}`}
+                            className={`w-full h-full rounded-lg shadow-sm transition-all duration-200 flex flex-col p-3 hover:shadow-md`}
                             style={{ 
                                 boxSizing: 'border-box',
-                                borderStyle: 'solid'
+                                borderStyle: 'solid',
+                                ...styles
                             }}
                         >
                             {/* Header */}

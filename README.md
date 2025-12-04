@@ -1,21 +1,41 @@
 # SmartPath AI - Project Manager
 
-SmartPath AI is an intelligent project management tool that leverages generative AI (Google Gemini) to help you plan, visualize, and analyze projects. It features interactive PERT and Gantt charts, CPM (Critical Path Method) calculation, and advanced risk and cost analysis.
-<img width="1000" height="450" alt="Screenshot 2025-12-03 201506" src="https://github.com/user-attachments/assets/726d1f75-1bf1-4667-9412-fb7dc58106c1" />
+SmartPath AI is an intelligent project management suite that combines traditional methodologies with Generative AI to help you plan, visualize, and optimize complex projects. Beyond simple scheduling, it provides deep financial tracking, risk lifecycle management, and a context-aware AI Advisor.
 
-## Features
+## 🚀 Key Features
 
--   **AI Project Generation**: Describe your project in plain text or upload a document (.md, .txt, .docx), and the AI will generate a structured task list with dependencies, resources, and risks.
--   **Interactive Visualizations**:
-    -   **Gantt Chart**: A timeline view of your project schedule.
-    -   **PERT Chart**: A layered, dependency-based tree view showing the flow of tasks.
--   **Critical Path Method (CPM)**: Automatically calculates the critical path, early/late starts, and slack time.
--   **Smart Overlays**:
-    -   **Risk Heatmap**: Highlights tasks with high risk scores.
-    -   **Cost Analysis**: Visualizes cost intensity relative to the budget.
-    -   **Resource Load**: Shows resource allocation levels to spot bottlenecks.
--   **Export**: Export your charts to high-quality PNG images or your project data to JSON.
--   **AI Advisor**: Ask the AI to analyze your current plan for bottlenecks and mitigation strategies.
+### 🧠 AI Planning & Advisory
+-   **Generative Planning**: Describe your project in plain text or upload a document (`.md`, `.txt`, `.docx`), and the AI generates a complete schedule with tasks, dependencies, resources, and initial risks.
+-   **Context-Aware Advisor**: Ask the AI for specific help depending on your current view:
+    -   **Schedule Optimization**: Analyze the Critical Path for bottlenecks.
+    -   **Risk Insights**: Identify blind spots and suggest mitigation strategies.
+    -   **Meeting Analysis**: Extract action items and "what-if" scenarios from meeting logs.
+    -   **Charter Review**: Validate scope alignment and clarity.
+-   **Query Log**: All AI interactions are saved in a history log for future reference.
+
+### 📊 Interactive Visualizations
+-   **Dual-View Engine**: Switch instantly between **Gantt Charts** (Timeline) and **PERT Charts** (Network Diagram).
+-   **Critical Path Method (CPM)**: Automatic calculation of early/late starts, slack time, and the critical path.
+-   **Smart Overlays**: Toggle dynamic layers on your charts:
+    -   **Risk Heatmap**: Color-codes tasks based on risk probability × impact.
+    -   **Cost Intensity**: Visualizes high-cost nodes relative to the budget.
+    -   **Resource Load**: Highlights over-allocated resources.
+
+### 💰 Financial & Resource Management
+-   **Detailed Budgeting**: Track fixed costs per task and hourly resource rates.
+-   **Budget Change Log**: Manage the total budget with a mandatory audit trail (reasoning/history) for any increases or decreases.
+-   **Real-time Costing**: Live calculation of projected costs vs. total budget.
+
+### 🛡️ Risk & Governance
+-   **Interactive Risk Register**: Manage risks with status tracking (`OPEN`, `WATCHING`, `MITIGATED`, `CLOSED`), owners, and mitigation strategies.
+-   **Risk Matrix**: Auto-generated 5x5 Probability/Impact heatmap.
+-   **Project Charter**: A dedicated, editable view for high-level goals, scope (In/Out), stakeholders, and success criteria.
+-   **Meeting Logs**: specific tracking for project meetings and minutes.
+
+### ⚙️ Customization
+-   **Theme Engine**: Customize chart colors for tasks, critical paths, and risk levels.
+-   **AI Toggle**: Enable or disable AI features globally via settings.
+-   **Export**: Download project data as JSON or high-resolution PNG images of your charts.
 
 ## Installation & Running Locally
 
@@ -31,24 +51,18 @@ SmartPath AI is an intelligent project management tool that leverages generative
     ```
 
 3.  **Set up API Key**:
-    This project uses Google's Gemini API. You need to set your API key in the environment variables or passing it during the build process depending on your setup.
+    This project uses Google's Gemini API. You need to set your API key in the environment variables or pass it during the build process.
     
-    *Note: In the demo environment, the API key is handled via `process.env.API_KEY`.*
+    *Note: In the demo environment, the API key is automatically handled via `process.env.API_KEY`.*
 
 4.  **Run the app**:
     ```bash
     npm start
     ```
 
-## Running on Google AI Studio
-
-1.  Upload the file structure to the AI Studio prompt or editor.
-2.  Ensure `@google/genai`, `react`, `react-dom`, `d3`, `mammoth`, and `html2canvas` are available (via import maps or CDN).
-3.  The application entry point is `index.tsx`.
-
 ## Tech Stack
 
 -   **Frontend**: React, TypeScript, Tailwind CSS
--   **Visualization**: D3.js (for PERT), Custom SVG/HTML (for Gantt)
+-   **Visualization**: D3.js (PERT), Custom SVG/React (Gantt)
 -   **AI**: Google GenAI SDK (Gemini 2.5 Flash)
 -   **Utilities**: Mammoth.js (Docx parsing), html2canvas (Image export)

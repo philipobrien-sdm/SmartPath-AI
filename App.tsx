@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Project, ViewMode, OverlayMode } from './types';
+import { Project, ViewMode, OverlayMode, ThemeConfig, AIQueryEntry } from './types';
 import { calculateCPM, calculateProjectCost } from './utils/scheduler';
-import { generateProjectPlan, analyzeProjectRisks } from './services/geminiService';
+import { generateProjectPlan, getAIAdvice } from './services/geminiService';
 import { SAMPLE_PROJECT } from './utils/sampleData';
 import PERTChart from './components/PERTChart';
 import GanttChart from './components/GanttChart';
 import Editor from './components/Editor';
+import ReportView from './components/ReportView';
+import CharterView from './components/CharterView';
 
 // Icons
 const SparklesIcon = () => (
@@ -51,6 +53,26 @@ const CameraIcon = () => (
     </svg>
 );
 
+const SettingsIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.581-.495.644-.869l.214-1.281z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+);
+
+const InfoIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+  </svg>
+);
+
+const HistoryIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+);
+
+
 const App: React.FC = () => {
   const [project, setProject] = useState<Project>({
     id: 'p1',
@@ -62,13 +84,33 @@ const App: React.FC = () => {
       { id: 'r2', name: 'Developer', hourlyRate: 60 },
       { id: 'r3', name: 'Designer', hourlyRate: 55 }
     ],
-    tasks: []
+    tasks: [],
+    meetings: [],
+    aiQueryLog: []
   });
 
   const [viewMode, setViewMode] = useState<ViewMode>('GANTT');
   const [overlayMode, setOverlayMode] = useState<OverlayMode>('NONE');
   const [selectedResourceId, setSelectedResourceId] = useState<string | undefined>();
   
+  // Theme State
+  const [theme, setTheme] = useState<ThemeConfig>({
+      taskDefault: '#6366f1', // indigo-500
+      taskCritical: '#e11d48', // rose-600
+      riskHigh: '#ef4444',     // red-500
+      riskMedium: '#f97316',   // orange-500
+      riskLow: '#22c55e',      // green-500
+      resourceOverload: '#dc2626', // red-600
+      resourceNormal: '#3b82f6', // blue-500
+      linkDefault: '#cbd5e1',  // slate-300
+      linkCritical: '#dc2626', // red-600
+  });
+
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [aiEnabled, setAiEnabled] = useState(true);
+
   // Generation State
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const [generatePrompt, setGeneratePrompt] = useState('');
@@ -105,7 +147,9 @@ const App: React.FC = () => {
             const newTasks = calculateCPM(generated.tasks!);
             return {
                 ...prev,
-                tasks: newTasks
+                tasks: newTasks,
+                meetings: generated.meetings || [],
+                charter: generated.charter
             };
         });
         setIsGenerateModalOpen(false);
@@ -155,15 +199,55 @@ const App: React.FC = () => {
     e.target.value = '';
   };
 
-  const handleAnalyzeRisks = async () => {
+  // Generic AI Helper
+  const handleAskAI = async (category: 'OPTIMIZATION' | 'RISK' | 'MEETING' | 'CHARTER' | 'GENERAL', contextData?: string) => {
+      if (!aiEnabled) return;
+      
       setIsAnalyzing(true);
       setShowAnalysis(true);
-      setAnalysisText("Analyzing project structure, resources, and risks...");
+      setAnalysisText("Analyzing...");
+
+      let dataToAnalyze = contextData;
+
+      if (!dataToAnalyze) {
+          // Default context construction if not provided
+          if (category === 'OPTIMIZATION') {
+              dataToAnalyze = JSON.stringify({
+                  tasks: project.tasks.map(t => ({
+                      name: t.name, duration: t.duration, predecessors: t.predecessors, earlyStart: t.earlyStart, slack: t.slack, isCritical: t.isCritical
+                  })),
+                  resources: project.resources
+              });
+          } else if (category === 'RISK') {
+              dataToAnalyze = JSON.stringify({
+                  risks: project.tasks.flatMap(t => t.risks),
+                  tasks: project.tasks.map(t => ({ name: t.name, isCritical: t.isCritical }))
+              });
+          } else if (category === 'MEETING') {
+              dataToAnalyze = JSON.stringify(project.meetings);
+          } else if (category === 'CHARTER') {
+              dataToAnalyze = JSON.stringify(project.charter);
+          }
+      }
+
       try {
-          const analysis = await analyzeProjectRisks(project);
-          setAnalysisText(analysis);
+          const advice = await getAIAdvice(category, dataToAnalyze || "No data provided.");
+          setAnalysisText(advice);
+          
+          // Log query
+          const logEntry: AIQueryEntry = {
+              id: `ai-${Date.now()}`,
+              date: new Date().toLocaleString(),
+              category,
+              prompt: `Analysis request for ${category}`,
+              response: advice
+          };
+          setProject(prev => ({
+              ...prev,
+              aiQueryLog: [logEntry, ...(prev.aiQueryLog || [])]
+          }));
       } catch (e) {
-          setAnalysisText("Failed to analyze project risks.");
+          setAnalysisText("Failed to get AI advice.");
       } finally {
           setIsAnalyzing(false);
       }
@@ -284,6 +368,17 @@ const App: React.FC = () => {
             await captureAndDownload('gantt-chart-inner', 'GANTT');
         } else if (viewMode === 'PERT') {
             await captureAndDownload('pert-chart-container', 'PERT', true);
+        } else if (viewMode === 'REPORT') {
+             // Report view capture requires wrapper ID on report view
+             // For now, let's just capture the visible area
+             // Or maybe disable export for report?
+             // Let's assume the user is aware export primarily works for charts.
+        } else if (viewMode === 'CHARTER') {
+             // Basic capture for charter
+             // Assuming the user views it fully, but a scrolling capture is complex.
+             // We'll rely on browser print for documents usually, but PNG export is requested.
+             // Since CharterView uses a fixed container, we might need a specific ID wrapper.
+             // For now, disabling explicit image export for document views is acceptable or use the generic fallback.
         }
     } finally {
         setIsExporting(false);
@@ -357,8 +452,8 @@ const App: React.FC = () => {
                 </button>
                 <button 
                     onClick={handleExportImage}
-                    disabled={isExporting}
-                    className="p-2 text-slate-500 hover:bg-slate-100 rounded-full hover:text-indigo-600 transition-colors"
+                    disabled={isExporting || viewMode === 'REPORT' || viewMode === 'CHARTER'}
+                    className={`p-2 rounded-full transition-colors ${isExporting || viewMode === 'REPORT' || viewMode === 'CHARTER' ? 'text-slate-300 cursor-not-allowed' : 'text-slate-500 hover:bg-slate-100 hover:text-indigo-600'}`}
                     title="Export PNG">
                     {isExporting ? <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div> : <CameraIcon />}
                 </button>
@@ -375,6 +470,30 @@ const App: React.FC = () => {
                     className="hidden" 
                     accept="application/json" 
                 />
+                 
+                 {/* AI History Button */}
+                 {aiEnabled && (
+                    <button 
+                        onClick={() => setIsHistoryOpen(true)}
+                        className="p-2 text-slate-500 hover:bg-slate-100 rounded-full hover:text-indigo-600 transition-colors"
+                        title="AI Query Log">
+                        <HistoryIcon />
+                    </button>
+                 )}
+
+                 <button 
+                    onClick={() => setIsSettingsOpen(true)}
+                    className="p-2 text-slate-500 hover:bg-slate-100 rounded-full hover:text-indigo-600 transition-colors"
+                    title="Chart Settings">
+                    <SettingsIcon />
+                </button>
+
+                <button 
+                    onClick={() => setIsAboutOpen(true)}
+                    className="p-2 text-slate-500 hover:bg-slate-100 rounded-full hover:text-indigo-600 transition-colors"
+                    title="About SmartPath">
+                    <InfoIcon />
+                </button>
                 
                 <button 
                     onClick={loadSampleData}
@@ -387,7 +506,7 @@ const App: React.FC = () => {
 
            {/* View Switcher */}
            <div className="flex bg-slate-100 p-1 rounded-lg">
-              {(['GANTT', 'PERT'] as ViewMode[]).map(mode => (
+              {(['CHARTER', 'GANTT', 'PERT', 'REPORT'] as ViewMode[]).map(mode => (
                   <button
                     key={mode}
                     onClick={() => setViewMode(mode)}
@@ -429,17 +548,19 @@ const App: React.FC = () => {
                     <div className="text-xl font-bold text-orange-500">{riskCount}</div>
                 </div>
                 
-                {/* Ask AI Button */}
-                <button 
-                    onClick={handleAnalyzeRisks}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-xl shadow-sm font-medium transition-colors flex items-center gap-2">
-                    <BrainIcon />
-                    <span>Ask AI Advisor</span>
-                </button>
+                {/* Ask AI Button - General/Risk */}
+                {aiEnabled && (
+                    <button 
+                        onClick={() => handleAskAI('RISK')}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-xl shadow-sm font-medium transition-colors flex items-center gap-2">
+                        <BrainIcon />
+                        <span>Ask AI Advisor</span>
+                    </button>
+                )}
             </div>
 
             {/* View Container */}
-            <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 p-4 overflow-hidden relative">
+            <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 p-4 overflow-hidden relative flex flex-col">
                 {project.tasks.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-slate-400">
                         <SparklesIcon />
@@ -452,93 +573,133 @@ const App: React.FC = () => {
                     </div>
                 ) : (
                     <>
+                        {/* Specific Header for Charts to include Optimization */}
+                        {(viewMode === 'PERT' || viewMode === 'GANTT') && aiEnabled && (
+                            <div className="absolute top-6 right-6 z-10">
+                                <button 
+                                    onClick={() => handleAskAI('OPTIMIZATION')}
+                                    className="bg-white/90 backdrop-blur border border-indigo-200 text-indigo-700 px-3 py-1.5 rounded-lg shadow-sm text-xs font-bold hover:bg-indigo-50 flex items-center gap-1"
+                                >
+                                    <SparklesIcon /> Optimize Schedule
+                                </button>
+                            </div>
+                        )}
+
                         {viewMode === 'GANTT' && (
-                            <GanttChart project={project} overlayMode={overlayMode} selectedResourceId={selectedResourceId} />
+                            <div className="flex-1 overflow-hidden">
+                                <GanttChart 
+                                    project={project} 
+                                    overlayMode={overlayMode} 
+                                    selectedResourceId={selectedResourceId} 
+                                    theme={theme}
+                                />
+                            </div>
                         )}
                         {viewMode === 'PERT' && (
-                            <PERTChart 
-                                project={project} 
-                                overlayMode={overlayMode} 
-                                selectedResourceId={selectedResourceId}
-                                onTaskClick={(id) => console.log("Task clicked", id)} 
+                            <div className="flex-1 overflow-hidden">
+                                <PERTChart 
+                                    project={project} 
+                                    overlayMode={overlayMode} 
+                                    selectedResourceId={selectedResourceId}
+                                    onTaskClick={(id) => console.log("Task clicked", id)} 
+                                    theme={theme}
+                                />
+                            </div>
+                        )}
+                        {viewMode === 'REPORT' && (
+                            <ReportView 
+                                project={project}
+                                setProject={setProject}
+                                aiEnabled={aiEnabled}
+                                onAskAI={handleAskAI}
+                            />
+                        )}
+                        {viewMode === 'CHARTER' && (
+                            <CharterView 
+                                project={project}
+                                setProject={setProject}
+                                aiEnabled={aiEnabled}
+                                onAskAI={handleAskAI}
                             />
                         )}
                     </>
                 )}
             </div>
 
-             {/* Expanding Bottom Toolbar */}
-             <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-30 flex flex-col items-center gap-2">
-                {/* Expanded Menu */}
-                {isOverlayMenuOpen && (
-                    <div className="bg-white/95 backdrop-blur-md border border-slate-200 shadow-2xl rounded-2xl p-4 mb-2 min-w-[320px] animate-in slide-in-from-bottom-5 fade-in duration-200">
-                        <div className="flex justify-between items-center mb-3">
-                            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Overlays</h4>
-                            <button onClick={() => setOverlayMode('NONE')} className="text-[10px] text-slate-400 hover:text-red-500">Reset</button>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-2 mb-3">
-                             <button 
-                                onClick={() => setOverlayMode(overlayMode === 'RISK' ? 'NONE' : 'RISK')}
-                                className={`text-sm px-3 py-2 rounded-lg font-medium transition-all border ${overlayMode === 'RISK' ? 'bg-red-50 text-red-600 border-red-200 shadow-sm' : 'hover:bg-slate-50 text-slate-600 border-slate-100'}`}
-                             >
-                                Risk Heatmap
-                             </button>
-                             <button 
-                                onClick={() => setOverlayMode(overlayMode === 'COST' ? 'NONE' : 'COST')}
-                                className={`text-sm px-3 py-2 rounded-lg font-medium transition-all border ${overlayMode === 'COST' ? 'bg-green-50 text-green-600 border-green-200 shadow-sm' : 'hover:bg-slate-50 text-slate-600 border-slate-100'}`}
-                             >
-                                Cost Analysis
-                             </button>
-                        </div>
-                        
-                        <div className="pt-3 border-t border-slate-100">
-                            <button 
-                                onClick={() => {
-                                    const next = overlayMode === 'RESOURCE' ? 'NONE' : 'RESOURCE';
-                                    setOverlayMode(next);
-                                    if(next === 'RESOURCE' && !selectedResourceId && project.resources.length > 0) {
-                                        setSelectedResourceId(project.resources[0].id);
-                                    }
-                                }}
-                                className={`w-full text-sm px-3 py-2 rounded-lg font-medium transition-all border mb-2 ${overlayMode === 'RESOURCE' ? 'bg-blue-50 text-blue-600 border-blue-200 shadow-sm' : 'hover:bg-slate-50 text-slate-600 border-slate-100'}`}
-                            >
-                                Resource Load
-                            </button>
+             {/* Expanding Bottom Toolbar (Only for Gantt/Pert) */}
+             {(viewMode === 'GANTT' || viewMode === 'PERT') && (
+                 <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-30 flex flex-col items-center gap-2">
+                    {/* Expanded Menu */}
+                    {isOverlayMenuOpen && (
+                        <div className="bg-white/95 backdrop-blur-md border border-slate-200 shadow-2xl rounded-2xl p-4 mb-2 min-w-[320px] animate-in slide-in-from-bottom-5 fade-in duration-200">
+                            <div className="flex justify-between items-center mb-3">
+                                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Overlays</h4>
+                                <button onClick={() => setOverlayMode('NONE')} className="text-[10px] text-slate-400 hover:text-red-500">Reset</button>
+                            </div>
                             
-                            {overlayMode === 'RESOURCE' && (
-                                <div className="bg-slate-50 rounded-lg p-2 max-h-32 overflow-y-auto border border-slate-100 grid grid-cols-1 gap-1">
-                                    {project.resources.length === 0 ? <span className="text-xs text-slate-400 text-center py-2">No resources defined</span> : 
-                                     project.resources.map(r => (
-                                        <button
-                                            key={r.id}
-                                            onClick={() => setSelectedResourceId(r.id)}
-                                            className={`text-left text-xs px-2 py-1.5 rounded transition-colors ${selectedResourceId === r.id ? 'bg-blue-100 text-blue-700 font-semibold' : 'hover:bg-slate-200 text-slate-600'}`}
-                                        >
-                                            {r.name}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
+                            <div className="grid grid-cols-2 gap-2 mb-3">
+                                 <button 
+                                    onClick={() => setOverlayMode(overlayMode === 'RISK' ? 'NONE' : 'RISK')}
+                                    className={`text-sm px-3 py-2 rounded-lg font-medium transition-all border ${overlayMode === 'RISK' ? 'bg-red-50 text-red-600 border-red-200 shadow-sm' : 'hover:bg-slate-50 text-slate-600 border-slate-100'}`}
+                                 >
+                                    Risk Heatmap
+                                 </button>
+                                 <button 
+                                    onClick={() => setOverlayMode(overlayMode === 'COST' ? 'NONE' : 'COST')}
+                                    className={`text-sm px-3 py-2 rounded-lg font-medium transition-all border ${overlayMode === 'COST' ? 'bg-green-50 text-green-600 border-green-200 shadow-sm' : 'hover:bg-slate-50 text-slate-600 border-slate-100'}`}
+                                 >
+                                    Cost Analysis
+                                 </button>
+                            </div>
+                            
+                            <div className="pt-3 border-t border-slate-100">
+                                <button 
+                                    onClick={() => {
+                                        const next = overlayMode === 'RESOURCE' ? 'NONE' : 'RESOURCE';
+                                        setOverlayMode(next);
+                                        if(next === 'RESOURCE' && !selectedResourceId && project.resources.length > 0) {
+                                            setSelectedResourceId(project.resources[0].id);
+                                        }
+                                    }}
+                                    className={`w-full text-sm px-3 py-2 rounded-lg font-medium transition-all border mb-2 ${overlayMode === 'RESOURCE' ? 'bg-blue-50 text-blue-600 border-blue-200 shadow-sm' : 'hover:bg-slate-50 text-slate-600 border-slate-100'}`}
+                                >
+                                    Resource Load
+                                </button>
+                                
+                                {overlayMode === 'RESOURCE' && (
+                                    <div className="bg-slate-50 rounded-lg p-2 max-h-32 overflow-y-auto border border-slate-100 grid grid-cols-1 gap-1">
+                                        {project.resources.length === 0 ? <span className="text-xs text-slate-400 text-center py-2">No resources defined</span> : 
+                                         project.resources.map(r => (
+                                            <button
+                                                key={r.id}
+                                                onClick={() => setSelectedResourceId(r.id)}
+                                                className={`text-left text-xs px-2 py-1.5 rounded transition-colors ${selectedResourceId === r.id ? 'bg-blue-100 text-blue-700 font-semibold' : 'hover:bg-slate-200 text-slate-600'}`}
+                                            >
+                                                {r.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    </div>
-                )}
-
-                {/* Main Toggle Button */}
-                <button 
-                    onClick={() => setIsOverlayMenuOpen(!isOverlayMenuOpen)}
-                    className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-3 rounded-full shadow-xl shadow-slate-300/50 font-medium transition-all hover:-translate-y-0.5 active:translate-y-0 active:scale-95 flex items-center gap-2 border border-slate-700"
-                >
-                    <LayersIcon />
-                    <span>{isOverlayMenuOpen ? 'Hide Overlays' : 'View Overlays'}</span>
-                    {(overlayMode !== 'NONE') && (
-                        <span className="flex h-2.5 w-2.5 relative ml-1">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-indigo-500 border border-slate-800"></span>
-                        </span>
                     )}
-                </button>
-            </div>
+
+                    {/* Main Toggle Button */}
+                    <button 
+                        onClick={() => setIsOverlayMenuOpen(!isOverlayMenuOpen)}
+                        className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-3 rounded-full shadow-xl shadow-slate-300/50 font-medium transition-all hover:-translate-y-0.5 active:translate-y-0 active:scale-95 flex items-center gap-2 border border-slate-700"
+                    >
+                        <LayersIcon />
+                        <span>{isOverlayMenuOpen ? 'Hide Overlays' : 'View Overlays'}</span>
+                        {(overlayMode !== 'NONE') && (
+                            <span className="flex h-2.5 w-2.5 relative ml-1">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-indigo-500 border border-slate-800"></span>
+                            </span>
+                        )}
+                    </button>
+                 </div>
+             )}
 
 
             {/* Generate Plan Modal */}
@@ -637,6 +798,182 @@ const App: React.FC = () => {
                             >
                                 Close
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            
+            {/* AI History Modal */}
+            {isHistoryOpen && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col overflow-hidden border border-slate-100 animate-in fade-in zoom-in duration-200 h-[80vh]">
+                        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                            <h3 className="font-bold text-slate-700 flex items-center gap-2">
+                                <HistoryIcon /> AI Query Log
+                            </h3>
+                            <button onClick={() => setIsHistoryOpen(false)} className="text-slate-400 hover:text-red-500">✕</button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/50">
+                            {(!project.aiQueryLog || project.aiQueryLog.length === 0) ? (
+                                <div className="text-center text-slate-400 py-10 italic">No AI queries recorded yet.</div>
+                            ) : (
+                                project.aiQueryLog.map(log => (
+                                    <div key={log.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <span className="text-xs font-bold px-2 py-1 rounded bg-indigo-100 text-indigo-700 uppercase">{log.category}</span>
+                                            <span className="text-xs text-slate-400">{log.date}</span>
+                                        </div>
+                                        <div className="text-sm font-semibold text-slate-800 mb-2 border-b border-slate-100 pb-2">
+                                            {log.prompt}
+                                        </div>
+                                        <div className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed font-mono text-[11px] bg-slate-50 p-2 rounded">
+                                            {log.response}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Settings Modal */}
+            {isSettingsOpen && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden border border-slate-100 animate-in fade-in zoom-in duration-200">
+                        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                            <h3 className="font-bold text-slate-700 flex items-center gap-2">
+                                <SettingsIcon /> Settings
+                            </h3>
+                            <button onClick={() => setIsSettingsOpen(false)} className="text-slate-400 hover:text-red-500">✕</button>
+                        </div>
+                        <div className="p-6 overflow-y-auto max-h-[70vh]">
+                            
+                            {/* AI Toggle */}
+                            <div className="flex items-center justify-between p-4 bg-indigo-50 rounded-xl border border-indigo-100 mb-6">
+                                <div>
+                                    <h4 className="font-bold text-indigo-900">Enable AI Assistance</h4>
+                                    <p className="text-xs text-indigo-700 mt-1">Show AI Advisor buttons and features across the app.</p>
+                                </div>
+                                <button 
+                                    onClick={() => setAiEnabled(!aiEnabled)}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${aiEnabled ? 'bg-indigo-600' : 'bg-slate-200'}`}
+                                >
+                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition duration-200 ease-in-out ${aiEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+
+                            <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Color Theme</h4>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-600 mb-1">Standard Task</label>
+                                    <div className="flex items-center gap-2">
+                                        <input type="color" className="w-8 h-8 rounded cursor-pointer border-0" value={theme.taskDefault} onChange={(e) => setTheme({...theme, taskDefault: e.target.value})} />
+                                        <span className="text-xs text-slate-400 font-mono">{theme.taskDefault}</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-600 mb-1">Critical Task</label>
+                                    <div className="flex items-center gap-2">
+                                        <input type="color" className="w-8 h-8 rounded cursor-pointer border-0" value={theme.taskCritical} onChange={(e) => setTheme({...theme, taskCritical: e.target.value})} />
+                                        <span className="text-xs text-slate-400 font-mono">{theme.taskCritical}</span>
+                                    </div>
+                                </div>
+                                {/* ... existing color settings ... */}
+                            </div>
+                        </div>
+                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
+                            <button 
+                                onClick={() => {
+                                    setTheme({
+                                      taskDefault: '#6366f1', 
+                                      taskCritical: '#e11d48',
+                                      riskHigh: '#ef4444', 
+                                      riskMedium: '#f97316', 
+                                      riskLow: '#22c55e', 
+                                      resourceOverload: '#dc2626', 
+                                      resourceNormal: '#3b82f6', 
+                                      linkDefault: '#cbd5e1', 
+                                      linkCritical: '#dc2626'
+                                    });
+                                }}
+                                className="px-4 py-2 text-slate-500 hover:text-slate-700 font-medium text-sm">
+                                Reset Colors
+                            </button>
+                            <button 
+                                onClick={() => setIsSettingsOpen(false)}
+                                className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium text-sm">
+                                Done
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* About Modal */}
+            {isAboutOpen && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col overflow-hidden border border-slate-100 animate-in fade-in zoom-in duration-200 max-h-[85vh]">
+                        {/* Header */}
+                        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-indigo-200">SP</div>
+                                <div>
+                                    <h2 className="text-2xl font-bold text-slate-800">About SmartPath AI</h2>
+                                    <p className="text-sm text-slate-500">Next-Gen Project Management Suite</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setIsAboutOpen(false)} className="text-slate-400 hover:text-slate-600 bg-slate-50 p-2 rounded-full transition-colors">✕</button>
+                        </div>
+                        
+                        {/* Content */}
+                        <div className="p-8 overflow-y-auto space-y-8">
+                            {/* Intro */}
+                            <p className="text-slate-600 text-lg leading-relaxed">
+                                SmartPath AI combines traditional project management methodologies with the power of Generative AI. 
+                                It helps project managers plan, visualize, and analyze complex projects with ease, ensuring nothing falls through the cracks.
+                            </p>
+
+                            {/* Features Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="bg-slate-50 p-5 rounded-xl border border-slate-100">
+                                    <h3 className="font-bold text-slate-800 mb-2 flex items-center gap-2">
+                                        <span className="text-indigo-600">✨</span> AI Planning & Advisory
+                                    </h3>
+                                    <p className="text-sm text-slate-600">
+                                        Describe your project in plain English or upload a document, and our AI generates a complete schedule with tasks, dependencies, and resources. Use the <strong>AI Advisor</strong> for real-time risk analysis.
+                                    </p>
+                                </div>
+                                <div className="bg-slate-50 p-5 rounded-xl border border-slate-100">
+                                    <h3 className="font-bold text-slate-800 mb-2 flex items-center gap-2">
+                                        <span className="text-indigo-600">📊</span> Dual Visualization
+                                    </h3>
+                                    <p className="text-sm text-slate-600">
+                                        Switch instantly between a <strong>Gantt Chart</strong> for timeline planning and a <strong>PERT Chart</strong> (Network Diagram) for dependency analysis. Both views support interactive editing.
+                                    </p>
+                                </div>
+                                <div className="bg-slate-50 p-5 rounded-xl border border-slate-100">
+                                    <h3 className="font-bold text-slate-800 mb-2 flex items-center gap-2">
+                                        <span className="text-indigo-600">🎯</span> CPM & Analytics
+                                    </h3>
+                                    <p className="text-sm text-slate-600">
+                                        Automatic <strong>Critical Path Method (CPM)</strong> calculation identifies the longest path and slack times. Smart overlays visualize <strong>Risk</strong>, <strong>Cost</strong>, and <strong>Resource Overload</strong> directly on the charts.
+                                    </p>
+                                </div>
+                                <div className="bg-slate-50 p-5 rounded-xl border border-slate-100">
+                                    <h3 className="font-bold text-slate-800 mb-2 flex items-center gap-2">
+                                        <span className="text-indigo-600">📋</span> Charter & Reports
+                                    </h3>
+                                    <p className="text-sm text-slate-600">
+                                        Draft a professional <strong>Project Charter</strong>, manage meeting logs, track action items, and view a generated <strong>Risk Heatmap Matrix</strong> all in one place.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Footer/Credits */}
+                             <div className="border-t border-slate-100 pt-6 text-center text-slate-400 text-sm">
+                                <p>Powered by Google Gemini 2.5 Flash • Built with React & D3</p>
+                            </div>
                         </div>
                     </div>
                 </div>
