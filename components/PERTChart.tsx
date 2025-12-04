@@ -11,10 +11,10 @@ interface PERTChartProps {
   theme: ThemeConfig;
 }
 
-const CARD_WIDTH = 240;
-const CARD_HEIGHT = 160;
-const GAP_X = 100;
-const GAP_Y = 40;
+const CARD_WIDTH = 260; // Slightly wider for better spacing
+const CARD_HEIGHT = 180; // Compacted slightly with better layout
+const GAP_X = 80;
+const GAP_Y = 60;
 
 // Helper to add opacity to hex color
 const hexToRgba = (hex: string, alpha: number) => {
@@ -34,7 +34,6 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
     let nodes = project.tasks.map(t => ({ ...t, level: 0, x: 0, y: 0 }));
     
     // Assign Levels (Topological Layering)
-    // Run a few passes to propagate levels
     for (let pass = 0; pass < nodes.length + 2; pass++) {
         nodes.forEach(node => {
             if (node.predecessors.length > 0) {
@@ -60,7 +59,7 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
     for (let l = 0; l <= maxLevel; l++) {
         const column = levels[l] || [];
         
-        // Sort column based on predecessor positions (barycenter heuristic)
+        // Sort column based on predecessor positions
         if (l > 0) {
              column.sort((a, b) => {
                  const getAvgPredY = (task: typeof nodes[0]) => {
@@ -73,11 +72,9 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
         }
 
         const colHeight = column.length * (CARD_HEIGHT + GAP_Y) - GAP_Y;
-        
-        const startY = (0 - colHeight) / 2; // Center vertically around 0
+        const startY = (0 - colHeight) / 2;
 
         column.forEach((node, idx) => {
-            // Round coordinates to avoid sub-pixel rendering issues in foreignObjects
             node.x = Math.round(l * (CARD_WIDTH + GAP_X) + 50); 
             node.y = Math.round(startY + idx * (CARD_HEIGHT + GAP_Y));
         });
@@ -128,15 +125,12 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
     svg.call(zoom);
   }, [layout]);
 
-  // Helper to draw bezier curves
   const getLinkPath = (source: any, target: any) => {
       const sx = source.x + CARD_WIDTH;
       const sy = source.y + CARD_HEIGHT / 2;
       const tx = target.x;
       const ty = target.y + CARD_HEIGHT / 2;
-      
       const midX = (sx + tx) / 2;
-      
       return `M ${sx} ${sy} C ${midX} ${sy}, ${midX} ${ty}, ${tx} ${ty}`;
   };
 
@@ -149,16 +143,16 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
 
       if (overlayMode === 'RISK') {
           const score = getRiskScore(task);
-          if (score >= 15) { borderColor = theme.riskHigh; bgColor = hexToRgba(theme.riskHigh, 0.1); }
-          else if (score >= 5) { borderColor = theme.riskMedium; bgColor = hexToRgba(theme.riskMedium, 0.1); }
-          else { borderColor = theme.riskLow; bgColor = hexToRgba(theme.riskLow, 0.1); }
+          if (score >= 15) { borderColor = theme.riskHigh; bgColor = '#fff'; }
+          else if (score >= 5) { borderColor = theme.riskMedium; bgColor = '#fff'; }
+          else { borderColor = theme.riskLow; bgColor = '#fff'; }
       }
       else if (overlayMode === 'COST') {
         const cost = calculateTaskCost(task, project.resources);
         const ratio = cost / (project.budget || 1);
-        if (ratio > 0.1) { borderColor = theme.riskHigh; bgColor = hexToRgba(theme.riskHigh, 0.1); }
-        else if (ratio > 0.05) { borderColor = theme.riskMedium; bgColor = hexToRgba(theme.riskMedium, 0.1); }
-        else { borderColor = theme.riskLow; bgColor = hexToRgba(theme.riskLow, 0.1); }
+        if (ratio > 0.1) { borderColor = theme.riskHigh; bgColor = '#fff'; }
+        else if (ratio > 0.05) { borderColor = theme.riskMedium; bgColor = '#fff'; }
+        else { borderColor = theme.riskLow; bgColor = '#fff'; }
       }
       else if (overlayMode === 'RESOURCE' && selectedResourceId) {
           const alloc = task.resources.find(r => r.resourceId === selectedResourceId);
@@ -166,30 +160,30 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
               borderColor = '#cbd5e1'; 
               bgColor = '#f8fafc';
           } else {
-              if (alloc.percentage > 100) { borderColor = theme.resourceOverload; bgColor = hexToRgba(theme.resourceOverload, 0.1); }
-              else { borderColor = theme.resourceNormal; bgColor = hexToRgba(theme.resourceNormal, 0.1); }
+              if (alloc.percentage > 100) { borderColor = theme.resourceOverload; bgColor = '#fff'; }
+              else { borderColor = theme.resourceNormal; bgColor = '#fff'; }
           }
       }
       else {
-          // Standard view with Status Colors
           if (complete) {
               borderColor = '#10b981'; // green-500
-              bgColor = '#ecfdf5'; // green-50
+              bgColor = '#f0fdf4'; // green-50
           } else if (overdue) {
               borderColor = '#ef4444'; // red-500
               bgColor = '#fef2f2'; // red-50
           } else if (task.isCritical) {
               borderColor = theme.taskCritical;
-              bgColor = '#ffffff';
+              bgColor = '#fff1f2'; // rose-50
           } else {
               borderColor = '#94a3b8'; // slate-400
+              bgColor = '#ffffff';
           }
       }
 
       return {
           border: `2px solid ${borderColor}`,
           backgroundColor: bgColor,
-          boxShadow: task.isCritical && overlayMode === 'NONE' ? `0 0 10px ${hexToRgba(theme.taskCritical, 0.3)}` : 'none'
+          boxShadow: task.isCritical && overlayMode === 'NONE' ? `0 4px 6px -1px ${hexToRgba(theme.taskCritical, 0.2)}` : '0 2px 4px -1px rgba(0,0,0,0.05)'
       };
   };
 
@@ -211,19 +205,11 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
             <marker id="arrow-head-critical" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
                 <path d="M 0 0 L 10 5 L 0 10 z" fill={theme.linkCritical} />
             </marker>
-             <pattern id="diagonalHatch" patternUnits="userSpaceOnUse" width="8" height="8">
-                <path d="M-2,2 l4,-4 M0,8 l8,-8 M6,10 l4,-4" 
-                    style={{stroke:theme.riskHigh, strokeWidth:1}} />
-            </pattern>
         </defs>
         <g id="pert-group" transform={zoomTransform.toString()}>
             
-            {/* Background Rect for white export background */}
-            <rect 
-                x={-10000} y={-10000} width={20000} height={20000} 
-                fill="#f8fafc" opacity={0} 
-                className="export-bg" 
-            />
+            {/* Background for Export Clarity */}
+            <rect x={-10000} y={-10000} width={20000} height={20000} fill="#f8fafc" opacity={0} className="export-bg" />
 
             {/* Links */}
             {layout.links.map((link, i) => {
@@ -236,7 +222,6 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
                         stroke={isCriticalLink ? theme.linkCritical : theme.linkDefault}
                         strokeWidth={isCriticalLink ? "3" : "2"}
                         markerEnd={isCriticalLink ? "url(#arrow-head-critical)" : "url(#arrow-head)"}
-                        className="transition-all duration-500"
                         strokeDasharray={isCriticalLink ? "none" : "none"}
                     />
                 );
@@ -245,12 +230,9 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
             {/* Nodes */}
             {layout.nodes.map((node) => {
                 const cost = calculateTaskCost(node, project.resources);
-                const riskScore = getRiskScore(node);
                 const styles = getNodeStyles(node);
                 const complete = isTaskComplete(node);
                 const overdue = isTaskOverdue(node, project.startDate);
-                const deliveredCount = (node.deliverables || []).filter(d => d.url).length;
-                const totalDeliverables = (node.deliverables || []).length;
                 
                 return (
                     <foreignObject 
@@ -261,93 +243,167 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
                         height={CARD_HEIGHT}
                         className="overflow-visible"
                     >
-                        {/* Explicit styles for export */}
+                        {/* 
+                           We use inline styles here to ensure html2canvas captures the layout correctly 
+                           even if external CSS classes (Tailwind) are not properly loaded in the cloned export context.
+                        */}
                         <div 
                             onClick={(e) => { e.stopPropagation(); onTaskClick(node.id); }}
-                            className={`w-full h-full rounded-lg shadow-sm transition-all duration-200 flex flex-col p-3 hover:shadow-md relative`}
+                            className="group hover:scale-[1.02]"
                             style={{ 
+                                width: '100%',
+                                height: '100%',
                                 boxSizing: 'border-box',
-                                borderStyle: 'solid',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                borderRadius: '8px',
+                                position: 'relative',
+                                transition: 'all 0.2s',
                                 ...styles
                             }}
                         >
-                            {overdue && !complete && (
-                                <div className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full animate-pulse -mr-1 -mt-1 border border-white"></div>
-                            )}
-
-                            {/* Header */}
-                            <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
-                                <h3 className="font-bold text-sm text-slate-800 leading-tight line-clamp-2" title={node.name}>{node.name}</h3>
-                                <span className="text-[10px] font-mono text-slate-400 ml-1">#{node.id}</span>
+                            {/* Header Strip */}
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'flex-start',
+                                padding: '12px 12px 8px 12px'
+                            }}>
+                                <h3 style={{
+                                    fontWeight: 'bold',
+                                    fontSize: '12px',
+                                    color: '#1e293b', // slate-800
+                                    lineHeight: '1.25',
+                                    margin: 0,
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: 'vertical',
+                                    overflow: 'hidden',
+                                    width: '100%',
+                                    paddingRight: '24px'
+                                }} title={node.name}>
+                                    {node.name}
+                                </h3>
+                                {/* Absolute positioned status icons */}
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '8px',
+                                    right: '8px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'flex-end'
+                                }}>
+                                    <span style={{ fontSize: '9px', fontFamily: 'monospace', color: '#94a3b8' }}>#{node.id}</span>
+                                    {complete && <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#16a34a' }}>✓</span>}
+                                    {overdue && !complete && <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#dc2626' }}>!</span>}
+                                </div>
                             </div>
 
-                            {/* Details */}
-                            <div className="flex-1 space-y-2">
-                                <div className="flex justify-between text-xs">
-                                    <span className="text-slate-500 flex items-center gap-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
-                                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clipRule="evenodd" />
-                                        </svg>
-                                        {node.duration}d
-                                    </span>
-                                    <span className="text-slate-500 flex items-center gap-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
-                                          <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-                                        </svg>
-                                        ${cost.toLocaleString()}
-                                    </span>
+                            {/* Metrics Row */}
+                            <div style={{
+                                padding: '0 12px 8px 12px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                fontSize: '10px',
+                                color: '#64748b', // slate-500
+                                marginBottom: '8px'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: '#94a3b8' }}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span style={{ fontWeight: 500 }}>{node.duration}d</span>
                                 </div>
-                                
-                                {/* Deliverables Progress */}
-                                {totalDeliverables > 0 && (
-                                    <div className="flex items-center gap-1 text-[10px] text-slate-600 font-medium">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 text-indigo-500">
-                                          <path d="M10 2a.75.75 0 01.75.75v5.59l2.68-2.68a.75.75 0 111.06 1.06l-4 4a.75.75 0 01-1.06 0l-4-4a.75.75 0 011.06-1.06l2.68 2.68V2.75A.75.75 0 0110 2z" />
-                                          <path d="M2.75 13a.75.75 0 000 1.5h14.5a.75.75 0 000-1.5H2.75z" />
-                                        </svg>
-                                        Docs: {deliveredCount} / {totalDeliverables}
-                                    </div>
-                                )}
-                                
-                                {/* Resources */}
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                    {node.resources.length === 0 && <span className="text-[10px] text-slate-300 italic">No resources</span>}
-                                    {node.resources.slice(0, 3).map((r, idx) => {
-                                        const resName = project.resources.find(res => res.id === r.resourceId)?.name || 'Unknown';
-                                        return (
-                                            <span key={idx} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-50 text-indigo-700" title={`${resName}: ${r.percentage}%`}>
-                                                {resName.split(' ')[0]}
-                                                <span className="ml-1 text-indigo-400 text-[9px]">{r.percentage}%</span>
-                                            </span>
-                                        );
-                                    })}
-                                    {node.resources.length > 3 && <span className="text-[10px] text-slate-400">+{node.resources.length - 3}</span>}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: '#94a3b8' }}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span style={{ fontWeight: 500 }}>${cost.toLocaleString()}</span>
                                 </div>
                             </div>
                             
-                            {/* Footer Badges */}
-                            <div className="mt-auto pt-2 flex gap-2 justify-end">
-                                {complete && (
-                                    <span className="text-[10px] font-bold text-green-700 bg-green-100 px-1.5 rounded flex items-center">
-                                        ✓ Done
-                                    </span>
-                                )}
-                                {overdue && !complete && (
-                                    <span className="text-[10px] font-bold text-red-700 bg-red-100 px-1.5 rounded animate-pulse">
-                                        ! LATE
-                                    </span>
-                                )}
-                                {riskScore > 5 && (
-                                    <span className="text-[10px] font-bold text-orange-600 bg-orange-100 px-1.5 rounded" title="Risk Score">
-                                        ⚠ {riskScore}
-                                    </span>
-                                )}
-                                {node.isCritical && (
-                                    <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 rounded">
-                                        CP
-                                    </span>
+                            {/* Resources Area */}
+                            <div style={{
+                                flex: 1,
+                                padding: '0 12px 8px 12px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                justifyContent: 'flex-end'
+                            }}>
+                                {node.resources.length > 0 ? (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '4px' }}>
+                                        {node.resources.slice(0, 3).map((r, idx) => {
+                                            const resName = project.resources.find(res => res.id === r.resourceId)?.name || '??';
+                                            return (
+                                                <span key={idx} style={{
+                                                    backgroundColor: '#f1f5f9', // slate-100
+                                                    color: '#475569', // slate-600
+                                                    border: '1px solid #e2e8f0', // slate-200
+                                                    padding: '0 4px',
+                                                    borderRadius: '4px',
+                                                    fontSize: '9px',
+                                                    whiteSpace: 'nowrap',
+                                                    maxWidth: '60px',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    display: 'inline-block'
+                                                }}>
+                                                    {resName}
+                                                </span>
+                                            );
+                                        })}
+                                        {node.resources.length > 3 && <span style={{ fontSize: '9px', color: '#94a3b8' }}>+{node.resources.length - 3}</span>}
+                                    </div>
+                                ) : (
+                                    <div style={{ fontSize: '9px', color: '#cbd5e1', fontStyle: 'italic', marginBottom: '4px' }}>Unassigned</div>
                                 )}
                             </div>
+
+                            {/* Clean CPM Grid Footer */}
+                            <div style={{
+                                marginTop: 'auto',
+                                borderTop: '1px solid #f1f5f9',
+                                padding: '8px',
+                                backgroundColor: 'rgba(248, 250, 252, 0.5)',
+                                borderBottomLeftRadius: '8px',
+                                borderBottomRightRadius: '8px'
+                            }}>
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(4, 1fr)',
+                                    fontSize: '9px',
+                                    border: '1px solid #e2e8f0',
+                                    borderRadius: '4px',
+                                    backgroundColor: '#ffffff',
+                                    overflow: 'hidden'
+                                }}>
+                                    {/* Headers */}
+                                    {['ES', 'EF', 'LS', 'LF'].map(label => (
+                                        <div key={label} style={{
+                                            textAlign: 'center',
+                                            padding: '2px 0',
+                                            backgroundColor: '#f8fafc',
+                                            color: '#94a3b8',
+                                            fontWeight: 'bold',
+                                            borderRight: label !== 'LF' ? '1px solid #f1f5f9' : 'none',
+                                            borderBottom: '1px solid #f1f5f9'
+                                        }}>{label}</div>
+                                    ))}
+                                    
+                                    {/* Values */}
+                                    {[node.earlyStart, node.earlyFinish, node.lateStart, node.lateFinish].map((val, i) => (
+                                        <div key={i} style={{
+                                            textAlign: 'center',
+                                            padding: '4px 0',
+                                            fontFamily: 'monospace',
+                                            fontWeight: i < 2 ? 'bold' : 'normal',
+                                            color: i < 2 ? '#4338ca' : '#64748b', // indigo-700 : slate-500
+                                            borderRight: i !== 3 ? '1px solid #f1f5f9' : 'none'
+                                        }}>{val}</div>
+                                    ))}
+                                </div>
+                            </div>
+                            
                         </div>
                     </foreignObject>
                 );
