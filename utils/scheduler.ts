@@ -129,6 +129,57 @@ export const getDailyResourceUsage = (project: Project, day: number, resourceId:
   return totalPercent;
 };
 
+/**
+ * Calculates which tasks are contributing to a resource overload (aggregate usage > 100%)
+ * on any given day.
+ */
+export const calculateResourceBottlenecks = (project: Project, resourceId: string): Set<string> => {
+    const bottleneckTaskIds = new Set<string>();
+    if (!resourceId) return bottleneckTaskIds;
+
+    const projectDuration = Math.max(...project.tasks.map(t => t.earlyFinish), 0);
+    // Buffer array to store total percentage per day
+    const dailyUsage = new Float32Array(projectDuration + 50); 
+
+    // 1. Accumulate usage across all tasks for this resource
+    project.tasks.forEach(task => {
+        const alloc = task.resources.find(r => r.resourceId === resourceId);
+        if (alloc) {
+            for (let d = task.earlyStart; d < task.earlyFinish; d++) {
+                if (d < dailyUsage.length) {
+                    dailyUsage[d] += alloc.percentage;
+                }
+            }
+        }
+    });
+
+    // 2. Identify overloaded days (> 100%)
+    const overloadedDays = new Set<number>();
+    for (let d = 0; d < dailyUsage.length; d++) {
+        if (dailyUsage[d] > 100) {
+            overloadedDays.add(d);
+        }
+    }
+
+    // 3. Flag tasks active on those overloaded days
+    if (overloadedDays.size > 0) {
+        project.tasks.forEach(task => {
+            const alloc = task.resources.find(r => r.resourceId === resourceId);
+            if (alloc) {
+                // Check intersection with overloaded days
+                for (let d = task.earlyStart; d < task.earlyFinish; d++) {
+                    if (overloadedDays.has(d)) {
+                        bottleneckTaskIds.add(task.id);
+                        break; 
+                    }
+                }
+            }
+        });
+    }
+
+    return bottleneckTaskIds;
+};
+
 // --- Completion & Status Logic ---
 
 export const isTaskComplete = (task: Task): boolean => {

@@ -1,3 +1,4 @@
+
 # SmartPath AI - Project Manager
 
 **Next-Gen Project Management Suite powered by Generative AI.**
@@ -23,7 +24,22 @@ Switch instantly between **Gantt Charts** for timeline planning and **PERT Chart
   <em>Network Diagram (PERT) visualizing dependencies and flow</em>
 </p>
 
-### 2. Project Governance & History
+### 2. Resource Intelligence
+The dedicated **Resource View** highlights daily allocation percentages across all staff, instantly flagging bottlenecks and overloads.
+
+<p align="center">
+  <img src="docs/resource_view.png" alt="Resource Load View" width="100%" style="border-radius: 8px; border: 1px solid #e2e8f0;">
+</p>
+
+### 3. Comprehensive Reporting
+Generate standalone **HTML Status Reports** with executive summaries, schedules, and risk registers—perfect for stakeholder updates.
+
+<p align="center" style="display: flex; gap: 10px; justify-content: center;">
+  <img src="docs/html_report_1.png" alt="HTML Report Summary" width="48%" style="border-radius: 8px; border: 1px solid #e2e8f0;">
+  <img src="docs/html_report_2.png" alt="HTML Report Details" width="48%" style="border-radius: 8px; border: 1px solid #e2e8f0;">
+</p>
+
+### 4. Project Governance & History
 Define high-level goals, scope, and stakeholders in the **Project Charter**. Mistakes are easily fixed with the **Time Travel** history stack, allowing you to rollback the project state up to 10 steps.
 
 <p align="center">
@@ -36,7 +52,7 @@ Define high-level goals, scope, and stakeholders in the **Project Charter**. Mis
   <em>Visual Undo/Redo History Stack</em>
 </p>
 
-### 3. Risk Management
+### 5. Risk Management
 Identify, assess, and mitigate risks. The **Risk Matrix** automatically visualizes probability vs. impact, while the **Risk Register** tracks mitigation status.
 
 <p align="center" style="display: flex; gap: 10px; justify-content: center;">
@@ -44,7 +60,7 @@ Identify, assess, and mitigate risks. The **Risk Matrix** automatically visualiz
   <img src="docs/risk_table.png" alt="Risk Register List" width="48%" style="border-radius: 8px; border: 1px solid #e2e8f0;">
 </p>
 
-### 4. Tracking & Logs
+### 6. Tracking & Logs
 Keep track of **Meeting Minutes** and **Action Items**. The AI Advisor can even analyze these logs to find gaps or suggest "What-If" scenarios.
 
 <p align="center" style="display: flex; gap: 10px; justify-content: center;">
@@ -52,7 +68,7 @@ Keep track of **Meeting Minutes** and **Action Items**. The AI Advisor can even 
   <img src="docs/actions.png" alt="Action Tracker" width="48%" style="border-radius: 8px; border: 1px solid #e2e8f0;">
 </p>
 
-### 5. AI Intelligence
+### 7. AI Intelligence
 The **AI Advisor** provides context-aware insights. Whether you are optimizing a schedule, reviewing a charter, or analyzing risks, the AI acts as a senior consultant.
 
 <p align="center">
@@ -80,6 +96,12 @@ The **AI Advisor** provides context-aware insights. Whether you are optimizing a
 -   **Detailed Budgeting**: Track fixed costs per task and hourly resource rates.
 -   **Budget Change Log**: Manage the total budget with a mandatory audit trail (reasoning/history) for any increases or decreases.
 -   **Real-time Costing**: Live calculation of projected costs vs. total budget.
+-   **Resource Heatmap**: Dedicated tab to view daily resource utilization across the entire project lifecycle.
+
+### 📤 Reporting & Exports
+-   **HTML Reports**: One-click generation of a standalone, interactive HTML status report containing executive summaries, risk registers, and schedules.
+-   **JSON Import/Export**: Full state serialization.
+-   **PNG Export**: High-resolution image capture of charts.
 
 ## Installation & Running Locally
 

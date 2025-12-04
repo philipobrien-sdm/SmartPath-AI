@@ -1,3 +1,4 @@
+
 export interface Resource {
   id: string;
   name: string;
@@ -103,7 +104,7 @@ export interface Project {
   charter?: ProjectCharter;
 }
 
-export type ViewMode = 'PERT' | 'GANTT' | 'EDITOR' | 'REPORT' | 'CHARTER';
+export type ViewMode = 'PERT' | 'GANTT' | 'EDITOR' | 'REPORT' | 'CHARTER' | 'RESOURCES';
 export type OverlayMode = 'NONE' | 'RISK' | 'RESOURCE' | 'COST';
 
 export interface ThemeConfig {

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import * as d3 from 'd3';
 import { Task, Project, OverlayMode, ThemeConfig } from '../types';
-import { calculateTaskCost, getRiskScore, isTaskComplete, isTaskOverdue } from '../utils/scheduler';
+import { calculateTaskCost, getRiskScore, isTaskComplete, isTaskOverdue, calculateResourceBottlenecks } from '../utils/scheduler';
 
 interface PERTChartProps {
   project: Project;
@@ -27,6 +27,14 @@ const hexToRgba = (hex: string, alpha: number) => {
 const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedResourceId, onTaskClick, theme }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [zoomTransform, setZoomTransform] = useState<d3.ZoomTransform>(d3.zoomIdentity);
+
+  // Pre-calculate bottlenecks if we are in resource mode
+  const bottlenecks = useMemo(() => {
+    if (overlayMode === 'RESOURCE' && selectedResourceId) {
+        return calculateResourceBottlenecks(project, selectedResourceId);
+    }
+    return new Set<string>();
+  }, [project, overlayMode, selectedResourceId]);
 
   // 1. Calculate Layout
   const layout = useMemo(() => {
@@ -160,8 +168,14 @@ const PERTChart: React.FC<PERTChartProps> = ({ project, overlayMode, selectedRes
               borderColor = '#cbd5e1'; 
               bgColor = '#f8fafc';
           } else {
-              if (alloc.percentage > 100) { borderColor = theme.resourceOverload; bgColor = '#fff'; }
-              else { borderColor = theme.resourceNormal; bgColor = '#fff'; }
+              // Check if task is part of a bottleneck (aggregate usage > 100%) or individually > 100%
+              if (alloc.percentage > 100 || bottlenecks.has(task.id)) { 
+                  borderColor = theme.resourceOverload; 
+                  bgColor = '#fff'; 
+              } else { 
+                  borderColor = theme.resourceNormal; 
+                  bgColor = '#fff'; 
+              }
           }
       }
       else {

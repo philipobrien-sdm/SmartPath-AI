@@ -6,6 +6,7 @@ import { SAMPLE_PROJECT } from './utils/sampleData';
 import { generateHTMLReport } from './utils/htmlReportGenerator';
 import PERTChart from './components/PERTChart';
 import GanttChart from './components/GanttChart';
+import ResourceView from './components/ResourceView';
 import Editor from './components/Editor';
 import ReportView from './components/ReportView';
 import CharterView from './components/CharterView';
@@ -83,6 +84,12 @@ const HistoryIcon = () => (
 const UndoIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+    </svg>
+);
+
+const UsersIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
     </svg>
 );
 
@@ -552,8 +559,8 @@ const App: React.FC = () => {
                 </button>
                 <button 
                     onClick={handleExportImage}
-                    disabled={isExporting || viewMode === 'REPORT' || viewMode === 'CHARTER'}
-                    className={`p-2 rounded-full transition-colors ${isExporting || viewMode === 'REPORT' || viewMode === 'CHARTER' ? 'text-slate-300 cursor-not-allowed' : 'text-slate-500 hover:bg-slate-100 hover:text-indigo-600'}`}
+                    disabled={isExporting || viewMode === 'REPORT' || viewMode === 'CHARTER' || viewMode === 'RESOURCES'}
+                    className={`p-2 rounded-full transition-colors ${isExporting || viewMode === 'REPORT' || viewMode === 'CHARTER' || viewMode === 'RESOURCES' ? 'text-slate-300 cursor-not-allowed' : 'text-slate-500 hover:bg-slate-100 hover:text-indigo-600'}`}
                     title="Export PNG">
                     {isExporting ? <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div> : <CameraIcon />}
                 </button>
@@ -600,12 +607,13 @@ const App: React.FC = () => {
 
            {/* View Switcher */}
            <div className="flex bg-slate-100 p-1 rounded-lg">
-              {(['CHARTER', 'GANTT', 'PERT', 'REPORT'] as ViewMode[]).map(mode => (
+              {(['CHARTER', 'GANTT', 'PERT', 'RESOURCES', 'REPORT'] as ViewMode[]).map(mode => (
                   <button
                     key={mode}
                     onClick={() => setViewMode(mode)}
-                    className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${viewMode === mode ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    className={`px-3 py-1 text-sm font-medium rounded-md transition-all flex items-center gap-1 ${viewMode === mode ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                   >
+                      {mode === 'RESOURCES' && <UsersIcon />}
                       {mode}
                   </button>
               ))}
@@ -697,6 +705,14 @@ const App: React.FC = () => {
                                     overlayMode={overlayMode} 
                                     selectedResourceId={selectedResourceId}
                                     onTaskClick={(id) => setSelectedTaskId(id)} 
+                                    theme={theme}
+                                />
+                            </div>
+                        )}
+                        {viewMode === 'RESOURCES' && (
+                            <div className="flex-1 overflow-hidden">
+                                <ResourceView 
+                                    project={project}
                                     theme={theme}
                                 />
                             </div>
@@ -1049,10 +1065,10 @@ const App: React.FC = () => {
                                 </div>
                                 <div className="bg-slate-50 p-5 rounded-xl border border-slate-100">
                                     <h3 className="font-bold text-slate-800 mb-2 flex items-center gap-2">
-                                        <span className="text-indigo-600">🎯</span> CPM & Analytics
+                                        <span className="text-indigo-600">🎯</span> CPM & Resource Analytics
                                     </h3>
                                     <p className="text-sm text-slate-600">
-                                        Automatic <strong>Critical Path Method (CPM)</strong> calculation identifies the longest path and slack times. Smart overlays visualize <strong>Risk</strong>, <strong>Cost</strong>, and <strong>Resource Overload</strong> directly on the charts.
+                                        Automatic <strong>Critical Path Method (CPM)</strong> identifies the longest path. Use the <strong>Resource View</strong> tab to spot bottlenecks and over-allocated staff members across the entire project.
                                     </p>
                                 </div>
                                 <div className="bg-slate-50 p-5 rounded-xl border border-slate-100">
@@ -1060,7 +1076,7 @@ const App: React.FC = () => {
                                         <span className="text-indigo-600">📋</span> Charter & Reports
                                     </h3>
                                     <p className="text-sm text-slate-600">
-                                        Draft a professional <strong>Project Charter</strong>, manage meeting logs, track action items, and view a generated <strong>Risk Heatmap Matrix</strong> all in one place.
+                                        Draft a professional <strong>Project Charter</strong>, track logs, and generate standalone <strong>HTML Status Reports</strong> for stakeholders with a single click.
                                     </p>
                                 </div>
                             </div>

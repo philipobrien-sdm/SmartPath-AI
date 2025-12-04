@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Project, Task, OverlayMode, ThemeConfig } from '../types';
-import { getRiskScore, calculateTaskCost, getDailyResourceUsage, isTaskComplete, isTaskOverdue } from '../utils/scheduler';
+import { getRiskScore, calculateTaskCost, getDailyResourceUsage, isTaskComplete, isTaskOverdue, calculateResourceBottlenecks } from '../utils/scheduler';
 import * as d3 from 'd3';
 
 interface GanttChartProps {
@@ -21,6 +21,14 @@ const GanttChart: React.FC<GanttChartProps> = ({ project, overlayMode, selectedR
   const dayWidth = 40;
   const chartWidth = Math.max(totalDays * dayWidth + 200, 800);
 
+  // Pre-calculate bottlenecks if we are in resource mode
+  const bottlenecks = useMemo(() => {
+    if (overlayMode === 'RESOURCE' && selectedResourceId) {
+        return calculateResourceBottlenecks(project, selectedResourceId);
+    }
+    return new Set<string>();
+  }, [project, overlayMode, selectedResourceId]);
+
   // Colors
   const getTaskColor = (task: Task) => {
     if (overlayMode === 'RISK') {
@@ -34,7 +42,14 @@ const GanttChart: React.FC<GanttChartProps> = ({ project, overlayMode, selectedR
     }
     if (overlayMode === 'RESOURCE' && selectedResourceId) {
        const alloc = task.resources.find(r => r.resourceId === selectedResourceId);
-       return alloc ? (alloc.percentage > 100 ? theme.resourceOverload : theme.resourceNormal) : '#e2e8f0'; // slate-200
+       if (alloc) {
+           // Flag if individual > 100% OR if part of aggregate bottleneck
+           if (alloc.percentage > 100 || bottlenecks.has(task.id)) {
+               return theme.resourceOverload;
+           }
+           return theme.resourceNormal;
+       }
+       return '#e2e8f0'; // slate-200
     }
     
     // Status Logic
