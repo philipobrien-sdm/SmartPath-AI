@@ -69,7 +69,7 @@ Keep track of **Meeting Minutes** and **Action Items**. The AI Advisor can even 
 </p>
 
 ### 7. AI Intelligence
-The **AI Advisor** provides context-aware insights. Whether you are optimizing a schedule, reviewing a charter, or analyzing risks, the AI acts as a senior consultant.
+The optional **AI Advisor** provides context-aware insights. Whether you are optimizing a schedule, reviewing a charter, or analyzing risks, the AI acts as a senior consultant. The AI never changes your work, but offers feedback on project best practice, unseen risks, and opportunities to save, time/cost or optimise resource useage.
 
 <p align="center">
   <img src="docs/ai_advisor.png" alt="AI Advisor Analysis" width="600" style="border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);">
