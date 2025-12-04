@@ -3,6 +3,7 @@ import { Project, ViewMode, OverlayMode, ThemeConfig, AIQueryEntry } from './typ
 import { calculateCPM, calculateProjectCost } from './utils/scheduler';
 import { generateProjectPlan, getAIAdvice } from './services/geminiService';
 import { SAMPLE_PROJECT } from './utils/sampleData';
+import { generateHTMLReport } from './utils/htmlReportGenerator';
 import PERTChart from './components/PERTChart';
 import GanttChart from './components/GanttChart';
 import Editor from './components/Editor';
@@ -52,6 +53,12 @@ const CameraIcon = () => (
       <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
     </svg>
+);
+
+const DocumentTextIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+  </svg>
 );
 
 const SettingsIcon = () => (
@@ -306,6 +313,19 @@ const App: React.FC = () => {
       downloadAnchorNode.remove();
   };
 
+  const handleExportHTML = () => {
+      const htmlContent = generateHTMLReport(project);
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${project.name.replace(/\s+/g, '_')}_Report.html`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+  };
+
   const handleExportImage = async () => {
     const html2canvas = (window as any).html2canvas;
     if (!html2canvas) {
@@ -523,6 +543,12 @@ const App: React.FC = () => {
                     className="p-2 text-slate-500 hover:bg-slate-100 rounded-full hover:text-indigo-600 transition-colors"
                     title="Export JSON">
                     <SaveIcon />
+                </button>
+                 <button 
+                    onClick={handleExportHTML}
+                    className="p-2 text-slate-500 hover:bg-slate-100 rounded-full hover:text-indigo-600 transition-colors"
+                    title="Export HTML Report">
+                    <DocumentTextIcon />
                 </button>
                 <button 
                     onClick={handleExportImage}
